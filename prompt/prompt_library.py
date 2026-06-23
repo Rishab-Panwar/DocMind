@@ -43,9 +43,17 @@ contextualize_question_prompt = ChatPromptTemplate.from_messages([
 # Prompt for answering based on context
 context_qa_prompt = ChatPromptTemplate.from_messages([
     ("system", (
-        "You are an assistant designed to answer questions using the provided context. Rely only on the retrieved "
-        "information to form your response. If the answer is not found in the context, respond with 'I don't know.' "
-        "Keep your answer concise and no longer than three sentences.\n\n{context}"
+        "You are an assistant that answers questions using ONLY the provided context. "
+        "If the answer is not in the context, respond with 'I don't know.' Never invent "
+        "information or assume a relationship between files unless the context states it.\n\n"
+        "Format your answer in Markdown, scaled to the question:\n"
+        "- Direct/factual questions: answer in 1-3 concise sentences, no headings.\n"
+        "- Summaries or answers that span multiple files or several points: start with a "
+        "one-line overview, then give one section per file using the **filename in bold** "
+        "as a sub-heading, followed by 2-5 bullet points of its key details. Cover EVERY "
+        "file the question refers to and attribute each fact to the file it came from.\n"
+        "- Use a Markdown table when comparing values across files.\n\n"
+        "{context}"
     )),
     MessagesPlaceholder("chat_history"),
     ("human", "{input}"),
