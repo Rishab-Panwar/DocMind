@@ -37,6 +37,13 @@ _COMPUTE_HINTS = re.compile(
     r")\b"
 )
 
+
+def looks_computational(question: str) -> bool:
+    """True if the question shows an aggregation/lookup signal that warrants the
+    (exact) table-compute path. Callers use this to skip the LLM 'decide' round
+    trip entirely for plain summaries/descriptions — a major latency saving."""
+    return bool(question) and bool(_COMPUTE_HINTS.search(question))
+
 # Safe builtins for the eval sandbox — the common functions LLMs use in pandas
 # expressions (len, sum, max…), but NOT open/import/exec/eval/etc.
 _SAFE_BUILTINS = {
@@ -246,6 +253,55 @@ def _format_result(result) -> str:
     return str(result)
 
 
+def _fmt_num(v) -> str:
+    """Render a value with thousands separators when it's a finite number.
+    Non-numeric, NaN, and infinite values fall back to their string form so
+    formatting can never raise (e.g. int(NaN) would crash)."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return str(v)
+    import math
+    if math.isnan(f) or math.isinf(f):
+        return str(v)
+    return f"{int(f):,}" if f == int(f) else f"{f:,.2f}"
+
+
+def _is_blank(v) -> bool:
+    """True for NaN/None — empty ledger cells we should omit from the phrase."""
+    try:
+        return v is None or (isinstance(v, float) and pd.isna(v)) or pd.isna(v)
+    except (TypeError, ValueError):
+        return False
+
+
+def _pairs(items) -> str:
+    """Render label:value pairs, skipping blank (NaN/None) values so empty
+    ledger cells don't show as 'nan'."""
+    parts = [f"{k}: {_fmt_num(v)}" for k, v in items if not _is_blank(v)]
+    if parts:
+        return ", ".join(parts)
+    # Everything blank — fall back to showing the labels with their raw values.
+    return ", ".join(f"{k}: {v}" for k, v in items)
+
+
+def _humanize_result(result) -> str:
+    """Turn a computed scalar/Series/DataFrame/dict/tuple into a clean inline
+    phrase, so the answer reads naturally without a second LLM call."""
+    if isinstance(result, dict):
+        return _pairs(result.items())
+    if isinstance(result, pd.Series):
+        return _pairs(result.items())
+    if isinstance(result, pd.DataFrame):
+        if len(result) == 1:
+            row = result.iloc[0]
+            return _pairs((c, row[c]) for c in result.columns)
+        return result.head(30).to_string(index=False)
+    if isinstance(result, (list, tuple)):
+        return ", ".join(_fmt_num(v) for v in result)
+    return _fmt_num(result)
+
+
 def _closest(name: Optional[str], tables: Dict[str, pd.DataFrame]) -> Optional[str]:
     if not name:
         return None
@@ -283,7 +339,10 @@ def answer_with_tables(llm, question: str, tables: Dict[str, pd.DataFrame]) -> O
         '- If it is a summary, description, "what is this about", or about '
         'non-tabular content: {{"use": false}}\n\n'
         "Rules for expr: it MUST be a SINGLE Python expression — no assignments, "
-        "no semicolons, no statements. Use only `df` (the chosen table) and `pd`; "
+        "no semicolons, no statements. For an answer with more than one value, "
+        "return a LABELED pd.Series so each value is self-describing, e.g. "
+        "pd.Series({{'count': ..., 'total': ...}}) — do NOT return a bare tuple. "
+        "Use only `df` (the chosen table) and `pd`; "
         "match column names exactly. Use the sample rows to pick the RIGHT column — values may "
         "sit in generically-named columns (e.g. col2). For text matching use "
         "df['col'].astype(str).str.contains('x', case=False, na=False). If unsure "
@@ -295,8 +354,15 @@ def answer_with_tables(llm, question: str, tables: Dict[str, pd.DataFrame]) -> O
         "wrongly parse as 1970. Watch for embedded summary rows: if a printed "
         "TOTAL / GRAND TOTAL / CLOSING BALANCE row already exists (visible in the "
         "last rows), RETURN ITS VALUE instead of summing the column (summing would "
-        "double-count opening-balance and total rows). Return a scalar or small "
-        "DataFrame/Series."
+        "double-count opening-balance and total rows). IMPORTANT: the LABEL of "
+        "such a row (e.g. 'Closing Balance', 'TOTAL') may sit in ANY column — "
+        "often a generic one like col2 — NOT necessarily 'Particulars'. Find the "
+        "row by searching across ALL columns, then take its non-null numeric "
+        "value(s), e.g.: "
+        "df[df.astype(str).apply(lambda r: r.str.contains('closing balance', "
+        "case=False, na=False).any(), axis=1)].select_dtypes('number').stack()"
+        ".dropna(). NEVER use .iloc[0] on a filter that might be empty. "
+        "Return a scalar or small DataFrame/Series."
     )
     # Deterministic gate: if the question clearly needs the table, force the
     # compute branch so the model can't intermittently bail to use=false.
@@ -334,16 +400,13 @@ def answer_with_tables(llm, question: str, tables: Dict[str, pd.DataFrame]) -> O
         return None
     result_str = _format_result(result)
     log.info("table_qa: computed", table=name, expr=expr, result=result_str[:120])
-    phrase = ChatPromptTemplate.from_template(
-        'The user asked: "{q}"\n'
-        "This value was computed from the file {file}: {result}\n\n"
-        "Write a concise, direct answer to the question using this value. Mention "
-        "the file name {file}. Do not show code or mention pandas."
-    )
+    # Format the exact computed value deterministically instead of paying a
+    # second LLM round-trip to phrase it — keeps the value exact and saves
+    # ~one slow call per computational query. Never let a formatting edge case
+    # (NaN, odd types) crash the request — fall back to the raw value string.
+    file = name.split("::")[0]
     try:
-        ans = (phrase | llm | StrOutputParser()).invoke(
-            {"q": question, "file": name.split("::")[0], "result": result_str}
-        )
-        return ans.strip()
-    except Exception:
-        return f"According to {name.split('::')[0]}: {result_str}"
+        return f"According to {file}, {_humanize_result(result)}."
+    except Exception as e:
+        log.warning("table_qa: result formatting failed", error=str(e))
+        return f"According to {file}: {result_str}"
