@@ -10,6 +10,7 @@ the normal RAG path handles them unchanged.
 import os
 import io
 import re
+import ast
 import json
 import builtins
 from typing import Dict, Optional
@@ -21,6 +22,20 @@ from langchain_core.prompts import ChatPromptTemplate
 from logger import GLOBAL_LOGGER as log
 
 TABULAR_EXTS = {".csv", ".xlsx", ".xls", ".db", ".sqlite", ".sqlite3"}
+
+# Strong signals that a question needs the table data (aggregation or a labeled
+# row/value lookup). When one of these matches and tabular files exist, we force
+# the compute branch so the LLM cannot intermittently answer use=false and let
+# the question fall back to (unreliable) RAG — the cause of "sometimes it
+# answers, sometimes it says I don't know" for the same question.
+_COMPUTE_HINTS = re.compile(
+    r"(?i)\b("
+    r"total|totals|subtotal|grand\s+total|sum|sums|count|counts|how\s+many|"
+    r"number\s+of|average|avg|mean|median|max(?:imum)?|min(?:imum)?|"
+    r"highest|lowest|largest|smallest|most|least|"
+    r"opening\s+balance|closing\s+balance|balance|net\s+amount|aggregate"
+    r")\b"
+)
 
 # Safe builtins for the eval sandbox — the common functions LLMs use in pandas
 # expressions (len, sum, max…), but NOT open/import/exec/eval/etc.
@@ -188,6 +203,41 @@ def _parse_json(raw: str) -> Optional[dict]:
         return None
 
 
+def _safe_eval(expr: str, df: "pd.DataFrame"):
+    """Evaluate a pandas snippet in a restricted sandbox and return its value.
+
+    The decide step is asked for a single expression, but LLMs intermittently
+    emit multi-statement code ("df2 = df[...]; df2['x'].sum()") or trailing
+    assignments. Plain eval() rejects those with SyntaxError, which used to
+    silently drop the computed answer and fall back to (often wrong) RAG — the
+    main cause of "sometimes it answers, sometimes it says I don't know". Run
+    single expressions via eval; for multi-statement code, exec it and return
+    the value of the final expression (or a `result`/`_result`/`ans` variable).
+    Scope stays restricted to safe builtins, pd and df."""
+    safe_globals = {"__builtins__": _SAFE_BUILTINS, "pd": pd}
+    local = {"df": df}
+    try:
+        return eval(expr, safe_globals, local)  # fast path: one expression
+    except SyntaxError:
+        pass
+    tree = ast.parse(expr, mode="exec")
+    if tree.body and isinstance(tree.body[-1], ast.Expr):
+        # Capture the trailing expression's value.
+        last = tree.body[-1]
+        assign = ast.Assign(targets=[ast.Name(id="_result", ctx=ast.Store())], value=last.value)
+        ast.copy_location(assign, last)
+        tree.body[-1] = assign
+        ast.fix_missing_locations(tree)
+        exec(compile(tree, "<expr>", "exec"), safe_globals, local)
+        return local.get("_result")
+    # No trailing expression — accept a conventional result variable name.
+    exec(compile(tree, "<expr>", "exec"), safe_globals, local)
+    for name in ("_result", "result", "ans", "answer"):
+        if name in local:
+            return local[name]
+    return None
+
+
 def _format_result(result) -> str:
     if isinstance(result, pd.DataFrame):
         return result.head(30).to_string()
@@ -217,16 +267,24 @@ def answer_with_tables(llm, question: str, tables: Dict[str, pd.DataFrame]) -> O
     decide = ChatPromptTemplate.from_template(
         "You can compute over these in-memory pandas DataFrames:\n{schema}\n\n"
         'User question: "{q}"\n\n'
-        "Decide whether answering REQUIRES computing over table rows — totals, "
-        "sums, counts, averages, max/min, sorting, or filtering-and-counting — or "
-        "an exact single-row lookup. Reply with ONE JSON object and nothing else:\n"
+        "Decide whether answering needs the TABLE DATA. Answer use=true if the "
+        "question involves ANY of: totals, sums, counts, averages, max/min, "
+        "sorting, filtering-and-counting; OR reading a specific labeled row such "
+        "as a TOTAL / GRAND TOTAL / opening balance / closing balance; OR an "
+        "exact single-row or single-cell lookup of a value held in the table. "
+        "Only answer use=false for genuinely non-tabular questions — summaries, "
+        "descriptions, 'what is this about', or content that is not in the table. "
+        "When in doubt for a question about numbers in the ledger, choose true.\n"
+        "{force_note}"
+        "Reply with ONE JSON object and nothing else:\n"
         '- If yes: {{"use": true, "table": "<exact table name from the list>", '
         '"expr": "<a single pandas expression using variable df and pd that '
         'evaluates to the answer>"}}\n'
         '- If it is a summary, description, "what is this about", or about '
         'non-tabular content: {{"use": false}}\n\n'
-        "Rules for expr: use only `df` (the chosen table) and `pd`; match column "
-        "names exactly. Use the sample rows to pick the RIGHT column — values may "
+        "Rules for expr: it MUST be a SINGLE Python expression — no assignments, "
+        "no semicolons, no statements. Use only `df` (the chosen table) and `pd`; "
+        "match column names exactly. Use the sample rows to pick the RIGHT column — values may "
         "sit in generically-named columns (e.g. col2). For text matching use "
         "df['col'].astype(str).str.contains('x', case=False, na=False). If unsure "
         "which column holds a value, search every column: "
@@ -240,13 +298,27 @@ def answer_with_tables(llm, question: str, tables: Dict[str, pd.DataFrame]) -> O
         "double-count opening-balance and total rows). Return a scalar or small "
         "DataFrame/Series."
     )
+    # Deterministic gate: if the question clearly needs the table, force the
+    # compute branch so the model can't intermittently bail to use=false.
+    forced = bool(_COMPUTE_HINTS.search(question or ""))
+    force_note = (
+        "IMPORTANT: this question needs the table data — you MUST set use=true and "
+        "provide the best table and a valid expr. Do NOT answer use=false.\n"
+        if forced else ""
+    )
     try:
-        raw = (decide | llm | StrOutputParser()).invoke({"schema": schema, "q": question})
+        raw = (decide | llm | StrOutputParser()).invoke(
+            {"schema": schema, "q": question, "force_note": force_note}
+        )
     except Exception as e:
         log.warning("table_qa: decide step failed", error=str(e))
         return None
     data = _parse_json(raw)
-    if not data or not data.get("use"):
+    if not data:
+        return None
+    # When not forced, respect the model's use=false (let RAG handle it). When
+    # forced, proceed as long as we got a usable table + expr below.
+    if not forced and not data.get("use"):
         return None
     name = _closest(data.get("table"), tables)
     expr = (data.get("expr") or "").strip()
@@ -254,8 +326,9 @@ def answer_with_tables(llm, question: str, tables: Dict[str, pd.DataFrame]) -> O
         return None
     df = tables[name]
     try:
-        # Sandboxed eval: only safe builtins, pd, and the chosen df in scope.
-        result = eval(expr, {"__builtins__": _SAFE_BUILTINS, "pd": pd}, {"df": df})
+        # Sandboxed evaluation: only safe builtins, pd, and the chosen df in
+        # scope. Tolerates both single expressions and multi-statement snippets.
+        result = _safe_eval(expr, df)
     except Exception as e:
         log.warning("table_qa: expr failed", table=name, expr=expr, error=str(e))
         return None
