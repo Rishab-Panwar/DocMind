@@ -7,6 +7,7 @@ from typing import List, Optional, Dict, Any
 from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda
 from langchain_community.vectorstores import FAISS
 
 from utils.model_loader import ModelLoader
@@ -25,6 +26,13 @@ try:
     _RERANKER_AVAILABLE = True
 except ImportError:
     _RERANKER_AVAILABLE = False
+
+# FlashrankRerank's cross-encoder is pathologically slow here (~9s to rerank a
+# handful of chunks on CPU, plus ~5s to construct, paid per request), making the
+# Standard path ~20s vs the Agentic path's ~3s. MMR diversity + per-source
+# coverage already give good multi-file retrieval without it, so the reranker is
+# OFF by default. Re-enable with DOCVAULT_RERANK=1 if a faster reranker is wired.
+_RERANK_DEFAULT = os.getenv("DOCVAULT_RERANK", "0").lower() in {"1", "true", "yes"}
 
 
 class ConversationalRAG:
@@ -73,7 +81,7 @@ class ConversationalRAG:
         index_name: str = "index",
         search_type: str = "mmr",
         search_kwargs: Optional[Dict[str, Any]] = None,
-        use_reranker: bool = True,
+        use_reranker: Optional[bool] = None,
         reranker_top_n: int = 6,
     ):
         """
@@ -84,6 +92,8 @@ class ConversationalRAG:
         cross-encoder before being passed to the LLM.
         """
         try:
+            if use_reranker is None:
+                use_reranker = _RERANK_DEFAULT
             if not os.path.isdir(index_path):
                 raise FileNotFoundError(f"FAISS index directory not found: {index_path}")
 
@@ -159,11 +169,14 @@ class ConversationalRAG:
             # depending on which chunks a given index build surfaced. Returns
             # None for descriptive/semantic questions, which fall through to RAG.
             if self._tables:
-                from src.document_chat.table_qa import answer_with_tables
-                table_ans = answer_with_tables(self.llm, user_input, self._tables)
-                if table_ans is not None:
-                    log.info("ConversationalRAG: answered via table compute", session_id=self.session_id)
-                    return table_ans
+                from src.document_chat.table_qa import answer_with_tables, looks_computational
+                # Only spend the LLM 'decide' round-trip when the question shows
+                # an aggregation/lookup signal; summaries/descriptions skip it.
+                if looks_computational(user_input):
+                    table_ans = answer_with_tables(self.llm, user_input, self._tables)
+                    if table_ans is not None:
+                        log.info("ConversationalRAG: answered via table compute", session_id=self.session_id)
+                        return table_ans
             # Question already resolved above, so the chain runs with empty history.
             payload = {"input": user_input, "chat_history": []}
             answer = self.chain.invoke(payload)
@@ -268,19 +281,15 @@ class ConversationalRAG:
             if self.retriever is None:
                 raise DocumentPortalException("No retriever set before building chain", sys)
 
-            # 1) Rewrite user question with chat history context
-            question_rewriter = (
-                {"input": itemgetter("input"), "chat_history": itemgetter("chat_history")}
-                | self.contextualize_prompt
-                | self.llm
-                | StrOutputParser()
-            )
+            # 1) Retrieve docs for the question, then top up any file missing
+            #    from the result so multi-doc summaries cover every file.
+            #    invoke() already resolves follow-ups to a standalone question via
+            #    contextualize_question and passes empty chat_history here, so a
+            #    second in-chain rewrite LLM call would be redundant — retrieve
+            #    directly on "input" and save a full LLM round-trip per query.
+            retrieve_docs = RunnableLambda(lambda x: self._retrieve_with_coverage(x["input"]))
 
-            # 2) Retrieve docs for rewritten question, then top up any file
-            #    missing from the result so multi-doc summaries cover every file.
-            retrieve_docs = question_rewriter | self._retrieve_with_coverage
-
-            # 3) Answer using retrieved context + original input + chat history
+            # 2) Answer using retrieved context + the (already standalone) input.
             self.chain = (
                 {
                     "context": retrieve_docs,

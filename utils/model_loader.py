@@ -211,8 +211,13 @@ class ModelLoader:
         model_name = llm_config.get("model_name")
         temperature = llm_config.get("temperature", 0.2)
         max_tokens = llm_config.get("max_output_tokens", 2048)
+        # Gemini 2.5 models "think" before answering by default, which adds
+        # several seconds per call. Our steps (routing, extraction, grounded
+        # answering) don't need it, so default the thinking budget to 0 (off).
+        # Override per deployment via config llm.<provider>.thinking_budget.
+        thinking_budget = llm_config.get("thinking_budget", 0)
 
-        log.info("Loading LLM", provider=provider, model=model_name)
+        log.info("Loading LLM", provider=provider, model=model_name, thinking_budget=thinking_budget)
 
         if provider == "google":
             if self._use_vertex:
@@ -223,13 +228,15 @@ class ModelLoader:
                     location=self._vertex_location,
                     temperature=temperature,
                     max_output_tokens=max_tokens,
+                    thinking_budget=thinking_budget,
                 )
             else:
                 llm = ChatGoogleGenerativeAI(
                     model=model_name,
                     google_api_key=self.api_key_mgr.get("GOOGLE_API_KEY"),
                     temperature=temperature,
-                    max_output_tokens=max_tokens
+                    max_output_tokens=max_tokens,
+                    thinking_budget=thinking_budget,
                 )
         elif provider == "groq":
             llm = ChatGroq(
