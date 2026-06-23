@@ -1,0 +1,34 @@
+faiss_db:
+  collection_name: "document_portal"
+
+embedding_model:
+  provider: "google"
+  model_name: "models/gemini-embedding-001"
+
+retriever:
+  top_k: 10
+
+llm:
+  openai:
+    provider: "openai"
+    model_name: "gpt-4o-mini"
+    temperature: 0
+    max_output_tokens: 2048
+  groq:
+    provider: "groq"
+    model_name: "llama-3.1-8b-instant"
+    temperature: 0
+    max_output_tokens: 2048
+
+  google:
+    provider: "google"
+    model_name: "gemini-2.5-flash"
+    temperature: 0
+    max_output_tokens: 2048
+
+multimodal:
+  enabled: false
+  provider: "groq" # vision provider: "openai" | "groq" | "google"
+  vision_model: "meta-llama/llama-4-scout-17b-16e-instruct"
+  hires_strategy: true # use unstructured partition strategy="hi_res"
+  max_images: 5 # Groq vision supports up to 5 images per request
