@@ -128,6 +128,8 @@ def test_chatingestor_happy_path(tmp_path, monkeypatch):
         load_or_create = staticmethod(fake_load_or_create)
         def add_documents(self, docs):
             return len(docs)
+        def register(self, docs):
+            return None
 
     monkeypatch.setattr("src.document_ingestion.data_ingestion.FaissManager", FakeFM)
 

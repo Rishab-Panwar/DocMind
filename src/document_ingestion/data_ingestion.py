@@ -46,9 +46,13 @@ class FaissManager:
     def _fingerprint(text: str, md: Dict[str, Any]) -> str:
         src = md.get("source") or md.get("file_path")
         rid = md.get("row_id")
-        if src is not None:
-            return f"{src}::{'' if rid is None else rid}"
-        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+        if src is not None and rid is not None:
+            return f"{src}::{rid}"
+        # A single file produces many chunks, so a source-only key would collapse
+        # them all to one fingerprint. Include the content hash so each chunk is
+        # distinct (and an identical re-upload still dedups correctly).
+        prefix = f"{src}::" if src is not None else ""
+        return prefix + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     def _save_meta(self):
         self.meta_path.write_text(json.dumps(self._meta, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -91,6 +95,14 @@ class FaissManager:
         self.vs = FAISS.from_texts(texts=texts, embedding=self.emb, metadatas=metadatas or [])
         self.vs.save_local(str(self.index_dir))
         return self.vs
+
+    def register(self, docs: List[Document]):
+        """Record chunks in the dedup meta WITHOUT embedding/adding them — used
+        right after load_or_create(texts=...) created the index from these same
+        chunks, so a later add_documents() won't embed them a second time."""
+        for d in docs:
+            self._meta["rows"][self._fingerprint(d.page_content, d.metadata or {})] = True
+        self._save_meta()
 
 
 class ChatIngestor:
@@ -155,12 +167,21 @@ class ChatIngestor:
             texts = [c.page_content for c in chunks]
             metas = [c.metadata for c in chunks]
 
-            try:
-                vs = fm.load_or_create(texts=texts, metadatas=metas)
-            except Exception:
-                vs = fm.load_or_create(texts=texts, metadatas=metas)
-
-            added = fm.add_documents(chunks)
+            # Was there already an index on disk? (check BEFORE load_or_create,
+            # which creates the files.)
+            existed = (self.faiss_dir / "index.faiss").exists() and (self.faiss_dir / "index.pkl").exists()
+            vs = fm.load_or_create(texts=texts, metadatas=metas)
+            if existed:
+                # Existing index: embed+add only genuinely-new chunks (dedup).
+                added = fm.add_documents(chunks)
+            else:
+                # New index: from_texts (in load_or_create) embedded every chunk
+                # exactly ONCE. Just register them in the dedup meta so we don't
+                # embed them a second time — the old code also called
+                # add_documents here, doubling embedding cost and inserting
+                # duplicate vectors.
+                fm.register(chunks)
+                added = len(chunks)
             log.info("FAISS index updated", added=added, index=str(self.faiss_dir))
 
             # MMR diversifies results so multi-document indexes surface chunks
