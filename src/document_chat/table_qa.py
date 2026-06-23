@@ -8,6 +8,7 @@ questions — exact answers that scale. Non-computational questions return None 
 the normal RAG path handles them unchanged.
 """
 import os
+import io
 import re
 import json
 import builtins
@@ -92,6 +93,39 @@ def _frame_from_raw(raw: pd.DataFrame) -> pd.DataFrame:
     return body.reset_index(drop=True)
 
 
+def _read_excel_raw_sheets(src: str, base: str):
+    """Yield (table_name, raw_DataFrame) for an Excel file, choosing the reader
+    by the file's real signature rather than its extension. Spreadsheet exports
+    (esp. Tally/ERP) are routinely mislabeled — an OOXML .xlsx saved as .xls, or
+    HTML saved as .xls/.xlsx — which the default pd.read_excel engine rejects.
+
+    Raw frames are returned with header=None so the existing header-detection in
+    _frame_from_raw applies uniformly — so a correctly-labeled file parses
+    exactly as before (same engine, same result); only mislabeled files change."""
+    with open(src, "rb") as f:
+        data = f.read()
+    head = data[:8]
+    if head[:4] == b"PK\x03\x04":            # OOXML container
+        engine = "openpyxl"
+    elif head[:4] == b"\xd0\xcf\x11\xe0":    # legacy BIFF (OLE2)
+        engine = "xlrd"
+    else:
+        engine = None
+    if engine is not None:
+        sheets = pd.read_excel(io.BytesIO(data), sheet_name=None, header=None, engine=engine)
+        items = list(sheets.items())
+        for sheet, raw in items:
+            yield (base if len(items) == 1 else f"{base}::{sheet}"), raw
+        return
+    # HTML masquerading as Excel — let pandas parse the table(s).
+    try:
+        raws = pd.read_html(io.BytesIO(data), header=None)
+    except Exception:
+        raws = pd.read_html(io.BytesIO(data))
+    for i, raw in enumerate(raws, start=1):
+        yield (base if len(raws) == 1 else f"{base}::Table{i}"), raw
+
+
 def load_tables(sources) -> Dict[str, pd.DataFrame]:
     """Load every tabular source into named DataFrames. Sheets/tables become
     separate entries keyed `filename` or `filename::sheet`."""
@@ -103,9 +137,7 @@ def load_tables(sources) -> Dict[str, pd.DataFrame]:
             if ext == ".csv":
                 tables[base] = pd.read_csv(src)
             elif ext in {".xlsx", ".xls"}:
-                sheets = pd.read_excel(src, sheet_name=None, header=None)
-                for sheet, raw in sheets.items():
-                    name = base if len(sheets) == 1 else f"{base}::{sheet}"
+                for name, raw in _read_excel_raw_sheets(src, base):
                     tables[name] = _frame_from_raw(raw)
             elif ext in {".db", ".sqlite", ".sqlite3"}:
                 import sqlite3
