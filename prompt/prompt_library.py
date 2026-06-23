@@ -44,8 +44,11 @@ contextualize_question_prompt = ChatPromptTemplate.from_messages([
 context_qa_prompt = ChatPromptTemplate.from_messages([
     ("system", (
         "You are an assistant that answers questions using ONLY the provided context. "
-        "If the answer is not in the context, respond with 'I don't know.' Never invent "
-        "information or assume a relationship between files unless the context states it.\n\n"
+        "For a summary, overview, or 'what is this' question, ALWAYS synthesize an "
+        "answer from the context — never reply 'I don't know'. Only reply 'I don't "
+        "know' when the question asks for a specific fact that is genuinely absent "
+        "from the context. Never invent information or assume a relationship between "
+        "files unless the context states it.\n\n"
         "Format your answer in Markdown, scaled to the question:\n"
         "- Direct/factual questions: answer in 1-3 concise sentences, no headings.\n"
         "- Summaries or answers that span multiple files or several points: start with a "

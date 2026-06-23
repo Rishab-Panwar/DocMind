@@ -221,11 +221,14 @@ class AgenticRAG:
             # are answered by running real pandas, not RAG. Returns None for
             # descriptive/semantic questions, which fall through to retrieval.
             if self._tables:
-                from src.document_chat.table_qa import answer_with_tables
-                table_ans = answer_with_tables(self.llm, question, self._tables)
-                if table_ans is not None:
-                    log.info("AgenticRAG: answered via table compute", session_id=self.session_id)
-                    return table_ans
+                from src.document_chat.table_qa import answer_with_tables, looks_computational
+                # Only spend the LLM 'decide' round-trip when the question shows
+                # an aggregation/lookup signal; summaries/descriptions skip it.
+                if looks_computational(question):
+                    table_ans = answer_with_tables(self.llm, question, self._tables)
+                    if table_ans is not None:
+                        log.info("AgenticRAG: answered via table compute", session_id=self.session_id)
+                        return table_ans
             initial: RAGState = {
                 "question": question,
                 "retrieval_query": question,
@@ -344,7 +347,10 @@ class AgenticRAG:
             "that exist / are indexed / are uploaded, answer ONLY from this list "
             "of files in this session: {manifest}. Do NOT list filenames that "
             "merely appear inside the document text.\n"
-            "If the answer is not in the context, say 'I don't know.'\n\n"
+            "- For a summary, overview, or 'what is this' question, ALWAYS "
+            "synthesize an answer from the context above — never reply 'I don't "
+            "know'. Only reply 'I don't know' when the question asks for a "
+            "specific fact that is genuinely absent from the context.\n\n"
             "Context:\n{context}\n\nQuestion: {question}\nAnswer:"
         )
         return gen_prompt, {"context": context, "question": question, "manifest": manifest}
