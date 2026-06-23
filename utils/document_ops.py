@@ -30,11 +30,11 @@ def load_documents(paths: Iterable[Path]) -> List[Document]:
                     docs.append(_doc_from_text(p.read_text(encoding="utf-8"), p, {"file_type": ext}))
                 elif ext == ".csv":
                     docs.append(_doc_from_text(_read_csv(p), p, {"file_type": ext}))
-                elif ext == ".xlsx":
-                    for sheet_name, text in _read_xlsx_as_sheets(p):
-                        docs.append(_doc_from_text(text, p, {"file_type": ext, "sheet": sheet_name}))
-                elif ext == ".xls":
-                    for sheet_name, text in _read_xls_as_sheets(p):
+                elif ext in {".xlsx", ".xls"}:
+                    # Route by actual file content, not extension: spreadsheet
+                    # exports (esp. Tally/ERP) are frequently mislabeled — an
+                    # OOXML .xlsx saved as .xls, or HTML saved as .xls/.xlsx.
+                    for sheet_name, text in _read_spreadsheet_as_sheets(p):
                         docs.append(_doc_from_text(text, p, {"file_type": ext, "sheet": sheet_name}))
                 elif ext in {".db", ".sqlite", ".sqlite3"}:
                     docs.append(_doc_from_text(_read_sqlite_dump(p), p, {"file_type": ext}))
@@ -111,8 +111,13 @@ def _read_csv(p: Path) -> str:
 
 
 def _read_xlsx_as_sheets(p: Path):
+    import io
     import openpyxl
-    wb = openpyxl.load_workbook(str(p), read_only=True, data_only=True)
+    # Load from a byte stream rather than the path: openpyxl rejects a ".xls"
+    # filename outright, even when the bytes are valid OOXML. Reading the stream
+    # bypasses that extension check so mislabeled files still parse.
+    with open(p, "rb") as f:
+        wb = openpyxl.load_workbook(io.BytesIO(f.read()), read_only=True, data_only=True)
     out = []
     for ws in wb.worksheets:
         parts = [f"\n--- Sheet: {ws.title} ---"]
@@ -133,6 +138,43 @@ def _read_xls_as_sheets(p: Path):
             parts.append("\t".join("" if c is None else str(c) for c in row))
         out.append((sheet.name, "\n".join(parts)))
     return out
+
+
+def _read_html_as_sheets(p: Path):
+    """Read HTML tables (Tally/ERP often export .xls/.xlsx that is really HTML)."""
+    import pandas as pd
+    dfs = pd.read_html(str(p))  # requires lxml/html5lib/bs4
+    out = []
+    for i, df in enumerate(dfs, start=1):
+        text = df.to_csv(sep="\t", index=False)
+        out.append((f"Table {i}", f"\n--- Table {i} ---\n{text}"))
+    return out
+
+
+def _read_spreadsheet_as_sheets(p: Path):
+    """Read an Excel file by sniffing its real format from the file signature,
+    not the (often wrong) extension. Handles: OOXML (.xlsx) via openpyxl, legacy
+    BIFF (.xls) via xlrd, and HTML-masquerading-as-Excel via pandas. Falls back
+    to trying each engine if the signature is unrecognized."""
+    with open(p, "rb") as f:
+        head = f.read(8)
+    if head[:4] == b"PK\x03\x04":            # zip container => OOXML .xlsx
+        return _read_xlsx_as_sheets(p)
+    if head[:4] == b"\xd0\xcf\x11\xe0":      # OLE2 compound => legacy BIFF .xls
+        return _read_xls_as_sheets(p)
+    stripped = head.lstrip().lower()
+    if stripped.startswith(b"<") or b"<htm" in stripped or b"<tab" in stripped:
+        return _read_html_as_sheets(p)
+    # Unknown signature — try each reader until one yields content.
+    last_err: Exception | None = None
+    for reader in (_read_xlsx_as_sheets, _read_xls_as_sheets, _read_html_as_sheets):
+        try:
+            res = reader(p)
+            if res:
+                return res
+        except Exception as e:
+            last_err = e
+    raise RuntimeError(f"Unrecognized spreadsheet format for {p.name}: {last_err}")
 
 
 def _read_json(p: Path) -> str:
