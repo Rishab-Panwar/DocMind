@@ -186,6 +186,58 @@ class ConversationalRAG:
             log.error("Failed to load LLM", error=str(e))
             raise DocumentPortalException("LLM loading error in ConversationalRAG", sys)
 
+    def _ensure_source_coverage(self, query: str, docs: list, per_source: int = 2) -> list:
+        """Guarantee every indexed file contributes at least a couple of chunks.
+
+        MMR + the reranker optimise for relevance to the query, which on a vague
+        prompt like "summarize all the files" can collapse the final chunks onto
+        2-3 files and silently drop the rest. This tops up any file missing from
+        the retrieved set with its nearest chunks (mirrors the agentic path). It
+        only issues a cheap vector search per *missing* source, so it adds
+        negligible latency and does not change k or the reranker.
+        """
+        vs = getattr(self, "vectorstore", None)
+        if vs is None:
+            return docs
+        try:
+            all_sources = {
+                (d.metadata or {}).get("source")
+                for d in vs.docstore._dict.values()
+                if (d.metadata or {}).get("source")
+            }
+        except Exception:
+            return docs
+        if len(all_sources) <= 1:
+            return docs
+        present = {(d.metadata or {}).get("source") for d in docs}
+        missing = [s for s in all_sources if s not in present]
+        if not missing:
+            return docs
+        try:
+            vec = vs.embeddings.embed_query(query)
+            total = len(vs.docstore._dict)
+        except Exception:
+            return docs
+        for src in missing:
+            try:
+                extra = vs.similarity_search_by_vector(
+                    vec, k=per_source, filter={"source": src}, fetch_k=max(total, 50)
+                )
+                docs.extend(extra)
+                log.info(
+                    "ConversationalRAG: source-coverage top-up",
+                    source=os.path.basename(src), added=len(extra), session_id=self.session_id,
+                )
+            except Exception as e:
+                log.warning("ConversationalRAG: coverage top-up failed", source=src, error=str(e))
+        return docs
+
+    def _retrieve_with_coverage(self, query: str) -> str:
+        """Retrieve for `query`, then guarantee per-file coverage, then format."""
+        docs = self.retriever.invoke(query)
+        docs = self._ensure_source_coverage(query, docs)
+        return self._format_docs(docs)
+
     def _format_docs(self, docs) -> str:
         # Prefix each chunk with its source filename so the LLM can attribute
         # content to the right document (per-file summaries in a multi-doc index).
@@ -213,8 +265,9 @@ class ConversationalRAG:
                 | StrOutputParser()
             )
 
-            # 2) Retrieve docs for rewritten question
-            retrieve_docs = question_rewriter | self.retriever | self._format_docs
+            # 2) Retrieve docs for rewritten question, then top up any file
+            #    missing from the result so multi-doc summaries cover every file.
+            retrieve_docs = question_rewriter | self._retrieve_with_coverage
 
             # 3) Answer using retrieved context + original input + chat history
             self.chain = (
