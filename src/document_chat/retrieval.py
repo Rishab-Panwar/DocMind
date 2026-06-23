@@ -16,7 +16,7 @@ from prompt.prompt_library import PROMPT_REGISTRY
 from model.models import PromptType
 from src.document_chat.agent_rag import (
     _unique_sources, _strip_source_tags, _format_manifest, _is_file_list_query,
-    contextualize_question,
+    contextualize_question, _load_index_cached,
 )
 
 try:
@@ -53,6 +53,9 @@ class ConversationalRAG:
             # Lazy pieces
             self.retriever = retriever
             self.chain = None
+            # Parsed tabular files for exact computation (totals/counts/balance),
+            # populated in load_retriever_from_faiss; empty for text-only sessions.
+            self._tables: Dict[str, Any] = {}
             if self.retriever is not None:
                 self._build_lcel_chain()
 
@@ -84,13 +87,10 @@ class ConversationalRAG:
             if not os.path.isdir(index_path):
                 raise FileNotFoundError(f"FAISS index directory not found: {index_path}")
 
-            embeddings = ModelLoader().load_embeddings()
-            vectorstore = FAISS.load_local(
-                index_path,
-                embeddings,
-                index_name=index_name,
-                allow_dangerous_deserialization=True,
-            )
+            # Load the vectorstore AND parse any tabular files (csv/xlsx/xls/db)
+            # into DataFrames, cached per index. The tables back exact table
+            # computation for aggregation questions (see invoke()).
+            vectorstore, self._tables = _load_index_cached(ModelLoader(), index_path, index_name)
 
             if search_kwargs is None:
                 if search_type == "mmr":
@@ -153,6 +153,17 @@ class ConversationalRAG:
                 names = _unique_sources(self.vectorstore)
                 if names:
                     return f"{len(names)} indexed file(s):\n" + "\n".join(f"- {n}" for n in names)
+            # Computational questions over tabular files (totals/counts/max/min,
+            # the TOTAL row) are answered by running real pandas — RAG only sees
+            # the retrieved chunks, so it miscounts or says "I don't know"
+            # depending on which chunks a given index build surfaced. Returns
+            # None for descriptive/semantic questions, which fall through to RAG.
+            if self._tables:
+                from src.document_chat.table_qa import answer_with_tables
+                table_ans = answer_with_tables(self.llm, user_input, self._tables)
+                if table_ans is not None:
+                    log.info("ConversationalRAG: answered via table compute", session_id=self.session_id)
+                    return table_ans
             # Question already resolved above, so the chain runs with empty history.
             payload = {"input": user_input, "chat_history": []}
             answer = self.chain.invoke(payload)
