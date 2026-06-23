@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>DocVault</title>
+  <title>DocMind · AI Document Intelligence</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="/static/style.css" rel="stylesheet" />
   <!-- Markdown rendering for assistant answers (bold, tables, lists) -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
@@ -18,252 +18,329 @@
     .bubble .md ul, .bubble .md ol { margin: 0 0 8px; padding-left: 20px; }
     .bubble .md li { margin: 2px 0; }
     .bubble .md table { border-collapse: collapse; margin: 6px 0; width: 100%; font-size: 0.92em; }
-    .bubble .md th, .bubble .md td { border: 1px solid rgba(255,255,255,0.18); padding: 6px 10px; text-align: left; }
-    .bubble .md th { background: rgba(255,255,255,0.06); font-weight: 600; }
-    .bubble .md code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
-    .bubble .md pre { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; overflow-x: auto; }
+    .bubble .md th, .bubble .md td { border: 1px solid rgba(0,0,0,0.12); padding: 6px 10px; text-align: left; }
+    .bubble .md th { background: rgba(0,0,0,0.04); font-weight: 600; }
+    .bubble .md code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+    .bubble .md pre { background: rgba(0,0,0,0.05); padding: 10px; border-radius: 6px; overflow-x: auto; }
     .bubble .md pre code { background: none; padding: 0; }
-    .bubble .md a { color: #8ab4ff; }
+    .bubble .md a { color: var(--accent); }
+    .message.user .bubble .md th, .message.user .bubble .md td { border-color: rgba(255,255,255,0.22); }
+    .message.user .bubble .md th { background: rgba(255,255,255,0.08); }
+    .message.user .bubble .md code, .message.user .bubble .md pre { background: rgba(255,255,255,0.12); }
+    .message.user .bubble .md a { color: #fff; }
   </style>
 </head>
 <body>
-<!-- Toast container -->
 <div id="toast-container"></div>
 
-<div class="app-layout">
+<!-- ============================ LANDING ============================ -->
+<div id="view-landing" class="view active">
+  <nav class="landing-nav">
+    <div class="landing-logo">DocMind</div>
+  </nav>
 
-  <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-icon">🔐</div>
-      <span class="sidebar-name">DocVault</span>
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-badge"><span class="hero-dot"></span> AI Document Intelligence</div>
+    <h1 class="hero-title">Many documents.<br>Many formats.<br><em>One place to ask.</em></h1>
+    <p class="hero-sub">Bring any document. DocMind turns it into answers, surfaces what matters, and shows exactly what changed. Every answer grounded in your own files.</p>
+    <div class="hero-cta">
+      <a href="#features" class="btn primary lg">Features</a>
+      <a href="#how" class="btn ghost lg">Under the hood</a>
     </div>
+  </header>
 
-    <nav class="sidebar-nav">
-      <div class="nav-label">Features</div>
+  <!-- SUPPORTED FILE TYPES (marquee) -->
+  <div class="hero-formats">
+    <div class="hf-label">Supported file types</div>
+    <div class="marquee">
+      <div class="marquee-track">
+        <span class="format-chip"><span class="fmt-badge" style="background:#e23b3b">PDF</span><span class="fmt-name">PDF</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#2b579a">DOC</span><span class="fmt-name">Word</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#d24726">PPT</span><span class="fmt-name">PowerPoint</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#217346">XLS</span><span class="fmt-name">Excel</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#0f9d58">CSV</span><span class="fmt-name">CSV</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#6c6e74">TXT</span><span class="fmt-name">Text</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#0d0d0d">MD</span><span class="fmt-name">Markdown</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#f59e0b">{ }</span><span class="fmt-name">JSON</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#4a5e72">DB</span><span class="fmt-name">SQLite</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#e23b3b">PDF</span><span class="fmt-name">PDF</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#2b579a">DOC</span><span class="fmt-name">Word</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#d24726">PPT</span><span class="fmt-name">PowerPoint</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#217346">XLS</span><span class="fmt-name">Excel</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#0f9d58">CSV</span><span class="fmt-name">CSV</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#6c6e74">TXT</span><span class="fmt-name">Text</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#0d0d0d">MD</span><span class="fmt-name">Markdown</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#f59e0b">{ }</span><span class="fmt-name">JSON</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#4a5e72">DB</span><span class="fmt-name">SQLite</span></span>
+        <!-- second identical half for a seamless -50% loop -->
+        <span class="format-chip"><span class="fmt-badge" style="background:#e23b3b">PDF</span><span class="fmt-name">PDF</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#2b579a">DOC</span><span class="fmt-name">Word</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#d24726">PPT</span><span class="fmt-name">PowerPoint</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#217346">XLS</span><span class="fmt-name">Excel</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#0f9d58">CSV</span><span class="fmt-name">CSV</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#6c6e74">TXT</span><span class="fmt-name">Text</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#0d0d0d">MD</span><span class="fmt-name">Markdown</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#f59e0b">{ }</span><span class="fmt-name">JSON</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#4a5e72">DB</span><span class="fmt-name">SQLite</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#e23b3b">PDF</span><span class="fmt-name">PDF</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#2b579a">DOC</span><span class="fmt-name">Word</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#d24726">PPT</span><span class="fmt-name">PowerPoint</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#217346">XLS</span><span class="fmt-name">Excel</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#0f9d58">CSV</span><span class="fmt-name">CSV</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#6c6e74">TXT</span><span class="fmt-name">Text</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#0d0d0d">MD</span><span class="fmt-name">Markdown</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#f59e0b">{ }</span><span class="fmt-name">JSON</span></span>
+        <span class="format-chip"><span class="fmt-badge" style="background:#4a5e72">DB</span><span class="fmt-name">SQLite</span></span>
+      </div>
+    </div>
+  </div>
 
-      <button class="nav-item active" data-tab="chat">
-        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span>Doc Chat</span>
-      </button>
+  <!-- FEATURES (3 cards) -->
+  <section id="features" class="section">
+    <div class="feature-cards">
+      <article class="feature-card">
+        <div class="fc-icon">💬</div>
+        <h3 class="fc-title">Doc Chat</h3>
+        <p class="fc-desc">Ask questions in plain language and get grounded answers, with exact math over tables, spreadsheets and ledgers.</p>
+        <button class="btn primary fc-try" data-feature="chat">Try it out →</button>
+      </article>
+      <article class="feature-card">
+        <div class="fc-icon">🔍</div>
+        <h3 class="fc-title">Analyze</h3>
+        <p class="fc-desc">Extract structured metadata like title, summary, entities, dates and sentiment from any document, as clean JSON.</p>
+        <button class="btn primary fc-try" data-feature="analyze">Try it out →</button>
+      </article>
+      <article class="feature-card">
+        <div class="fc-icon">⚖️</div>
+        <h3 class="fc-title">Compare</h3>
+        <p class="fc-desc">Page-by-page diff between two versions of a document, with changes detected and explained by the model.</p>
+        <button class="btn primary fc-try" data-feature="compare">Try it out →</button>
+      </article>
+    </div>
+  </section>
 
-      <button class="nav-item" data-tab="analysis">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span>Analyze</span>
-      </button>
+  <!-- THE PROBLEM -->
+  <section class="section problem">
+    <div class="problem-left">
+      <div class="section-label">The Problem</div>
+      <h2 class="section-title">Documents read.<br><em>DocMind understands.</em></h2>
+      <p class="section-lead">Search and Ctrl-F find words. They don't tell you what a document means, what the numbers add up to, or how two versions differ.</p>
+    </div>
+    <div class="problem-items">
+      <div class="problem-item">
+        <div class="pi-icon">🔎</div>
+        <div>
+          <strong>Answers hide in the noise</strong>
+          <p>The one line you actually need is buried under pages of boilerplate. Finding it by hand is slow and easy to miss.</p>
+        </div>
+      </div>
+      <div class="problem-item">
+        <div class="pi-icon">📊</div>
+        <div>
+          <strong>Numbers need computing, not reading</strong>
+          <p>Ledgers and tables don't hand you a total just by being read. Real questions need real math, done exactly.</p>
+        </div>
+      </div>
+      <div class="problem-item">
+        <div class="pi-icon">🕓</div>
+        <div>
+          <strong>Versions drift silently</strong>
+          <p>Spotting what changed between two files is manual and error-prone. DocMind diffs them page by page.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <button class="nav-item" data-tab="compare">
-        <svg viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
-        <span>Compare</span>
-      </button>
-    </nav>
+  <!-- HOW IT WORKS -->
+  <section id="how" class="section how">
+    <div class="section-label">Under the hood</div>
+    <h2 class="section-title">Built to be <em>trusted in production.</em></h2>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="hs-num">1</div>
+        <h3>Two retrieval engines</h3>
+        <p>Standard RAG for fast, grounded answers, and an Agentic RAG that grades context and computes over tables. The right engine for each question.</p>
+        <div class="hs-quote">Standard RAG vs Agentic RAG</div>
+      </div>
+      <div class="how-step">
+        <div class="hs-num">2</div>
+        <h3>Measured, not guessed</h3>
+        <p>Answer quality is evaluated on every change with DeepEval, scoring faithfulness, relevancy and hallucination, so quality never silently regresses.</p>
+        <div class="hs-quote">Evaluated with DeepEval</div>
+      </div>
+      <div class="how-step">
+        <div class="hs-num">3</div>
+        <h3>Built to scale</h3>
+        <p>Containerized and deployed on AWS ECS Fargate with a full CI/CD pipeline, ready for real workloads.</p>
+        <div class="hs-quote">Deployed on AWS ECS</div>
+      </div>
+    </div>
+  </section>
 
-    <div class="sidebar-bottom">
-      <button class="nav-item danger" id="btn-logout">
-        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        <span>Sign out</span>
+  <!-- STATS -->
+  <section class="section">
+    <div class="stats-band">
+      <div class="stat"><div class="stat-num">9+</div><div class="stat-label">File formats supported, from documents to spreadsheets to databases</div></div>
+      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">Typical answer latency</div></div>
+      <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Grounded in your own documents</div></div>
+      <div class="stat"><div class="stat-num">Exact</div><div class="stat-label">Real table math, not estimates</div></div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="section">
+    <div class="cta-band">
+      <div class="cta-text">
+        <h2 class="cta-title">Your documents,<br>finally <em>answerable.</em></h2>
+        <p>Upload a file and start asking. No setup, no syntax, just answers.</p>
+      </div>
+      <button class="btn light lg" data-feature="chat">Get started</button>
+    </div>
+  </section>
+
+  <footer class="landing-footer">DocMind · AI-powered document intelligence</footer>
+</div>
+
+<!-- ============================ CHAT VIEW ============================ -->
+<div id="view-chat" class="view app-view">
+  <header class="app-bar">
+    <button class="app-back" data-home>← DocMind</button>
+    <div class="app-bar-title">Doc Chat</div>
+    <div class="app-bar-right">
+      <button class="btn ghost sm" id="btn-reindex">Documents</button>
+      <div class="engine-toggle">
+        <span id="engine-label-std" class="small" style="color:var(--text)">Standard RAG</span>
+        <label class="switch" title="Toggle agentic mode"><input id="use-agent" type="checkbox" /><span class="slider"></span></label>
+        <span id="engine-label-ag" class="small" style="color:var(--muted)">Agentic</span>
+      </div>
+    </div>
+  </header>
+  <div class="chat-main">
+    <div class="messages" id="messages">
+      <div class="message assistant">
+        <div class="bubble">👋 Hi! Add your documents with <strong>Documents</strong> above, then ask me anything about them.</div>
+      </div>
+    </div>
+    <div class="chat-input-bar">
+      <input id="chat-q" type="text" placeholder="Ask a question about your documents…" autocomplete="off" />
+      <button id="btn-ask" class="btn primary icon-only" title="Send">
+        <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
-  </aside>
+  </div>
+</div>
 
-  <!-- ===== MAIN CONTENT ===== -->
-  <div class="main-content">
+<!-- ============================ ANALYZE VIEW ============================ -->
+<div id="view-analyze" class="view app-view">
+  <header class="app-bar">
+    <button class="app-back" data-home>← DocMind</button>
+    <div class="app-bar-title">Analyze Document</div>
+    <div class="app-bar-right"></div>
+  </header>
+  <div class="panel-body">
+    <div class="form-card">
+      <div class="form-card-title">Upload document</div>
+      <div class="upload-drop" id="an-drop">
+        <div class="upload-drop-icon">🔍</div>
+        <p>Drop your document here</p>
+        <p class="ud-hint">PDF, DOCX, PPTX, MD, TXT, XLSX, CSV, SQLite</p>
+        <p class="selected-name" id="an-filename"></p>
+        <input id="an-file" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
+      </div>
+      <button id="btn-analyze" class="btn primary">Run Analysis</button>
+    </div>
+    <div class="result-card">
+      <div class="result-card-head">📋 Result</div>
+      <pre class="code" id="an-json">Run analysis to see structured output here…</pre>
+    </div>
+  </div>
+</div>
 
-    <!-- ====== CHAT TAB ====== -->
-    <section id="tab-chat" class="tab-panel active">
-      <div class="panel-header">
-        <div>
-          <h2>Doc Chat</h2>
-          <p class="ph-sub">Upload documents, build an index, then ask questions</p>
+<!-- ============================ COMPARE VIEW ============================ -->
+<div id="view-compare" class="view app-view">
+  <header class="app-bar">
+    <button class="app-back" data-home>← DocMind</button>
+    <div class="app-bar-title">Compare Documents</div>
+    <div class="app-bar-right"></div>
+  </header>
+  <div class="panel-body">
+    <div class="form-card">
+      <div class="form-card-title">Upload documents</div>
+      <div class="compare-row">
+        <div class="upload-drop" id="ref-drop">
+          <div class="upload-drop-icon">📄</div>
+          <p>Reference file</p>
+          <p class="ud-hint">Original version</p>
+          <p class="selected-name" id="ref-filename"></p>
+          <input id="cmp-ref" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
         </div>
-        <div class="engine-toggle">
-          <span id="engine-label-std" class="muted small">Standard RAG</span>
-          <label class="switch" title="Toggle agentic mode">
-            <input id="use-agent" type="checkbox" />
-            <span class="slider"></span>
-          </label>
-          <span id="engine-label-ag" class="small" style="color:var(--accent-2)">Agentic</span>
+        <div class="upload-drop" id="act-drop">
+          <div class="upload-drop-icon">📝</div>
+          <p>Actual file</p>
+          <p class="ud-hint">Updated version</p>
+          <p class="selected-name" id="act-filename"></p>
+          <input id="cmp-act" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
         </div>
       </div>
-
-      <div class="chat-layout">
-
-        <!-- Left: settings -->
-        <div class="chat-settings">
-
-          <div class="settings-card">
-            <div class="settings-card-title">Documents</div>
-            <div class="drop-zone" id="drop-zone">
-              <div class="dz-icon">📄</div>
-              <p class="dz-title">Drop files here</p>
-              <p class="dz-hint">PDF, DOCX, TXT, PPTX, CSV…</p>
-              <input id="chat-files" type="file" multiple accept=".pdf,.docx,.txt,.pptx,.md,.csv,.xlsx,.xls,.db,.sqlite,.sqlite3,.json" />
-            </div>
-            <div id="file-list" class="file-list"></div>
-            <button id="btn-build" class="btn primary full">
-              <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              Build Index
-            </button>
-            <div id="session-badge" class="session-badge" style="margin-top:10px"></div>
-          </div>
-
-          <div class="settings-card">
-            <details class="adv">
-              <summary>Advanced settings</summary>
-              <div class="adv-grid">
-                <div class="field">
-                  <label>Session ID</label>
-                  <input id="chat-session" type="text" placeholder="auto-generated" />
-                </div>
-                <div class="field">
-                  <label>Chunk size</label>
-                  <input id="chat-chunk" type="number" value="1000" min="200" step="100" />
-                </div>
-                <div class="field">
-                  <label>Chunk overlap</label>
-                  <input id="chat-overlap" type="number" value="200" min="0" step="50" />
-                </div>
-                <div class="field">
-                  <label>Top-K results</label>
-                  <input id="chat-k" type="number" value="5" min="1" max="20" />
-                </div>
-                <div class="field toggle-row">
-                  <span class="flabel">Session-based FAISS</span>
-                  <label class="switch"><input id="chat-sessionized" type="checkbox" checked /><span class="slider"></span></label>
-                </div>
-                <div class="field toggle-row">
-                  <span class="flabel">Multimodal (images)</span>
-                  <label class="switch"><input id="chat-mm" type="checkbox" /><span class="slider"></span></label>
-                </div>
-              </div>
-            </details>
-          </div>
-
-        </div>
-
-        <!-- Right: messages + input -->
-        <div class="chat-main">
-          <div class="messages" id="messages">
-            <div class="message assistant">
-              <div class="bubble">
-                👋 Hi! Upload your documents on the left and click <strong>Build Index</strong>. Then ask me anything about them.
-              </div>
-            </div>
-          </div>
-
-          <div class="chat-input-bar">
-            <input id="chat-q" type="text" placeholder="Ask a question about your documents…" autocomplete="off" />
-            <button id="btn-ask" class="btn primary icon-only" title="Send">
-              <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
-          </div>
-        </div>
-
+      <button id="btn-compare" class="btn primary">Compare</button>
+    </div>
+    <div class="result-card">
+      <div class="result-card-head">🆚 Comparison Result</div>
+      <div class="table-wrap">
+        <table id="cmp-table">
+          <thead><tr><th>Page</th><th>Changes</th></tr></thead>
+          <tbody>
+            <tr><td class="td-page" colspan="2" style="color:var(--muted);text-align:center;padding:20px">No comparison yet.</td></tr>
+          </tbody>
+        </table>
       </div>
-    </section>
+    </div>
+  </div>
+</div>
 
-    <!-- ====== ANALYSIS TAB ====== -->
-    <section id="tab-analysis" class="tab-panel">
-      <div class="panel-header">
-        <div>
-          <h2>Analyze Document</h2>
-          <p class="ph-sub">Extract structured metadata from any document using LLM</p>
-        </div>
+<!-- ============================ CHAT UPLOAD MODAL ============================ -->
+<div id="chat-modal" class="modal-overlay">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" title="Close">×</button>
+    <h2 class="modal-title">Add your documents</h2>
+    <p class="modal-sub">Upload files and build an index, then start chatting.</p>
+
+    <div class="drop-zone" id="drop-zone">
+      <div class="dz-icon">📄</div>
+      <p class="dz-title">Drop files here</p>
+      <p class="dz-hint">PDF, DOCX, TXT, PPTX, CSV, XLSX, SQLite…</p>
+      <input id="chat-files" type="file" multiple accept=".pdf,.docx,.txt,.pptx,.md,.csv,.xlsx,.xls,.db,.sqlite,.sqlite3,.json" />
+    </div>
+    <div id="file-list" class="file-list"></div>
+
+    <details class="adv">
+      <summary>Advanced settings</summary>
+      <div class="adv-grid">
+        <div class="field"><label>Session ID</label><input id="chat-session" type="text" placeholder="auto-generated" /></div>
+        <div class="field"><label>Chunk size</label><input id="chat-chunk" type="number" value="1000" min="200" step="100" /></div>
+        <div class="field"><label>Chunk overlap</label><input id="chat-overlap" type="number" value="200" min="0" step="50" /></div>
+        <div class="field"><label>Top-K results</label><input id="chat-k" type="number" value="5" min="1" max="20" /></div>
+        <div class="field toggle-row"><span class="flabel">Session-based FAISS</span><label class="switch"><input id="chat-sessionized" type="checkbox" checked /><span class="slider"></span></label></div>
+        <div class="field toggle-row"><span class="flabel">Multimodal (images)</span><label class="switch"><input id="chat-mm" type="checkbox" /><span class="slider"></span></label></div>
       </div>
-      <div class="panel-body">
+    </details>
 
-        <div class="form-card">
-          <div class="form-card-title">Upload document</div>
-          <div class="upload-drop" id="an-drop">
-            <div class="upload-drop-icon">🔍</div>
-            <p>Drop your document here</p>
-            <p class="ud-hint">PDF, DOCX, PPTX, MD, TXT, XLSX, CSV, SQLite</p>
-            <p class="selected-name" id="an-filename"></p>
-            <input id="an-file" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
-          </div>
-          <button id="btn-analyze" class="btn primary">
-            <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            Run Analysis
-          </button>
-        </div>
+    <div id="session-badge" class="session-badge" style="margin-top:12px"></div>
 
-        <div class="result-card">
-          <div class="result-card-head">
-            📋 Result
-          </div>
-          <pre class="code" id="an-json">Run analysis to see structured output here…</pre>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- ====== COMPARE TAB ====== -->
-    <section id="tab-compare" class="tab-panel">
-      <div class="panel-header">
-        <div>
-          <h2>Compare Documents</h2>
-          <p class="ph-sub">Page-by-page diff between two document versions</p>
-        </div>
-      </div>
-      <div class="panel-body">
-
-        <div class="form-card">
-          <div class="form-card-title">Upload documents</div>
-          <div class="compare-row">
-            <div>
-              <div class="upload-drop" id="ref-drop">
-                <div class="upload-drop-icon">📄</div>
-                <p>Reference file</p>
-                <p class="ud-hint">Original version</p>
-                <p class="selected-name" id="ref-filename"></p>
-                <input id="cmp-ref" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
-              </div>
-            </div>
-            <div>
-              <div class="upload-drop" id="act-drop">
-                <div class="upload-drop-icon">📝</div>
-                <p>Actual file</p>
-                <p class="ud-hint">Updated version</p>
-                <p class="selected-name" id="act-filename"></p>
-                <input id="cmp-act" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
-              </div>
-            </div>
-          </div>
-          <button id="btn-compare" class="btn primary">
-            <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
-            Compare
-          </button>
-        </div>
-
-        <div class="result-card">
-          <div class="result-card-head">🆚 Comparison Result</div>
-          <div class="table-wrap">
-            <table id="cmp-table">
-              <thead><tr><th>Page</th><th>Changes</th></tr></thead>
-              <tbody>
-                <tr><td class="td-page" colspan="2" style="color:var(--muted);text-align:center;padding:20px">No comparison yet.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-  </div><!-- /main-content -->
-</div><!-- /app-layout -->
+    <div class="modal-actions">
+      <button id="btn-build" class="btn primary full">
+        <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Build Index
+      </button>
+      <button id="btn-start-chat" class="btn ghost full" disabled>Start chatting →</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const API_BASE = "";
-const tokenKey = "dp_jwt";
-function getToken() { return localStorage.getItem(tokenKey); }
-function authHeader() { const t = getToken(); return t ? { "Authorization": `Bearer ${t}` } : {}; }
-
-if (!getToken()) { window.location.href = "/login"; }
-// Verify token is valid on load
-fetch("/protected", { headers: { "Authorization": `Bearer ${getToken()}` } })
-  .then(r => { if (!r.ok) { localStorage.removeItem(tokenKey); window.location.href = "/login"; } })
-  .catch(() => {});
+function authHeader() { return {}; }  // auth removed — kept as a harmless no-op
 
 // ===== TOAST =====
 function toast(msg, type = "info") {
@@ -275,21 +352,30 @@ function toast(msg, type = "info") {
   setTimeout(() => el.remove(), 4000);
 }
 
-// ===== SIDEBAR NAV =====
-document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item[data-tab]").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-  });
-});
+// ===== VIEW ROUTING =====
+function showView(id) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("[data-home]").forEach(b => b.addEventListener("click", () => showView("view-landing")));
 
-// ===== LOGOUT =====
-document.getElementById("btn-logout").addEventListener("click", async () => {
-  try { await fetch("/auth/cookie/logout", { method: "POST" }); } catch (_) {}
-  localStorage.removeItem(tokenKey);
-  window.location.href = "/login";
+// ===== CHAT UPLOAD MODAL =====
+const chatModal = document.getElementById("chat-modal");
+function openChatModal() { chatModal.classList.add("open"); }
+function closeChatModal() { chatModal.classList.remove("open"); }
+document.getElementById("modal-close").addEventListener("click", closeChatModal);
+chatModal.addEventListener("click", e => { if (e.target === chatModal) closeChatModal(); });
+document.getElementById("btn-reindex").addEventListener("click", openChatModal);
+
+// ===== FEATURE CARD ACTIONS =====
+document.querySelectorAll("[data-feature]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const f = btn.dataset.feature;
+    if (f === "chat") { openChatModal(); }
+    else if (f === "analyze") { showView("view-analyze"); }
+    else if (f === "compare") { showView("view-compare"); }
+  });
 });
 
 // ===== CHAT — DROP ZONE =====
@@ -323,8 +409,9 @@ useAgent.addEventListener("change", () => {
 
 // ===== CHAT — BUILD INDEX =====
 let currentSession = null;
-let chatHistory = [];  // {role, content} turns for conversational memory
+let chatHistory = [];
 const sessionBadge = document.getElementById("session-badge");
+const startChatBtn = document.getElementById("btn-start-chat");
 
 document.getElementById("btn-build").addEventListener("click", async () => {
   const files = chatFiles.files;
@@ -343,18 +430,19 @@ document.getElementById("btn-build").addEventListener("click", async () => {
     fd.append("use_session_dirs", document.getElementById("chat-sessionized").checked ? "true" : "false");
     fd.append("chunk_size", document.getElementById("chat-chunk").value || "1000");
     fd.append("chunk_overlap", document.getElementById("chat-overlap").value || "200");
-    fd.append("k", document.getElementById("chat-k").value || "5");
     fd.append("multimodal", document.getElementById("chat-mm").checked ? "true" : "false");
 
     const res = await fetch(`${API_BASE}/chat/index`, { method: "POST", headers: { ...authHeader() }, body: fd });
     if (!res.ok) { const e = await res.json().catch(() => ({ detail: res.statusText })); throw new Error(e.detail || `HTTP ${res.status}`); }
     const json = await res.json();
     currentSession = json.session_id || sid || null;
-    chatHistory = [];  // fresh conversation for a newly built index
-    sessionBadge.textContent = `✓ Session: ${currentSession || "(none)"}  ·  k=${json.k}`;
+    chatHistory = [];
+    sessionBadge.textContent = `✓ Indexed ${files.length} file${files.length > 1 ? "s" : ""} · session ${currentSession || "(none)"}`;
     sessionBadge.classList.add("visible");
+    startChatBtn.disabled = false;
     toast("Index built successfully.", "success");
-    addMessage("assistant", `Index ready! I've indexed ${files.length} file${files.length > 1 ? "s" : ""}. Ask me anything.`);
+    // Move straight into the chat.
+    enterChat(files.length);
   } catch (e) {
     toast("Indexing failed: " + (e.message || e), "error");
   } finally {
@@ -362,6 +450,14 @@ document.getElementById("btn-build").addEventListener("click", async () => {
     btn.innerHTML = origText;
   }
 });
+
+startChatBtn.addEventListener("click", () => enterChat(chatFiles.files.length));
+
+function enterChat(n) {
+  closeChatModal();
+  showView("view-chat");
+  if (n) addMessage("assistant", `Index ready! I've indexed ${n} file${n > 1 ? "s" : ""}. Ask me anything.`);
+}
 
 // ===== CHAT — MESSAGES =====
 const messagesEl = document.getElementById("messages");
@@ -372,7 +468,6 @@ function addMessage(role, text, engine) {
   const bubble = document.createElement("div");
   bubble.className = "bubble";
   if (role === "assistant") {
-    // Render markdown (bold, tables, lists) and sanitize against XSS.
     const content = document.createElement("div");
     content.className = "md";
     content.innerHTML = DOMPurify.sanitize(marked.parse(text || ""));
@@ -411,7 +506,6 @@ function addThinking() {
   let dots = 0;
   const render = () => { bubble.textContent = `${word}${"·".repeat(dots % 4)}`; };
   render();
-  // Animate the dots quickly; rotate the gerund word every couple of seconds.
   const dotTimer = setInterval(() => { dots++; render(); }, 350);
   const wordTimer = setInterval(() => {
     let w; do { w = THINKING_WORDS[Math.floor(Math.random() * THINKING_WORDS.length)]; } while (w === word);
@@ -434,7 +528,7 @@ async function sendQuestion() {
   const q = chatInput.value.trim();
   if (!q) return;
   const useSess = document.getElementById("chat-sessionized").checked;
-  if (useSess && !currentSession) { toast("Build the index first.", "error"); return; }
+  if (useSess && !currentSession) { toast("Add documents first (click Documents).", "error"); openChatModal(); return; }
 
   addMessage("user", q);
   chatInput.value = "";
@@ -445,11 +539,9 @@ async function sendQuestion() {
     const fd = new FormData();
     fd.append("question", q);
     fd.append("use_session_dirs", useSess ? "true" : "false");
-    fd.append("k", document.getElementById("chat-k").value || "5");
     if (useSess && currentSession) fd.append("session_id", currentSession);
     const mm = document.getElementById("chat-mm").checked;
     fd.append("multimodal", mm ? "true" : "false");
-    // Send recent turns so follow-ups ("how many days is that?") resolve.
     fd.append("chat_history", JSON.stringify(chatHistory.slice(-12)));
 
     const isAgent = useAgent.checked && !mm;
@@ -461,7 +553,6 @@ async function sendQuestion() {
     removeThinking(thinkEl);
     const answer = json.answer || "No answer.";
     addMessage("assistant", answer, json.engine);
-    // Record the turn for conversational memory.
     chatHistory.push({ role: "user", content: q });
     chatHistory.push({ role: "assistant", content: answer });
     if (chatHistory.length > 24) chatHistory = chatHistory.slice(-24);
@@ -477,12 +568,8 @@ async function sendQuestion() {
 askBtn.addEventListener("click", sendQuestion);
 chatInput.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); } });
 
-// ===== ANALYSIS — DROP ZONE =====
+// ===== ANALYSIS =====
 const anFile = document.getElementById("an-file");
-anFile.addEventListener("change", () => {
-  const f = anFile.files[0];
-  document.getElementById("an-filename").textContent = f ? f.name : "";
-});
 setupDrop("an-drop", "an-file", "an-filename");
 
 document.getElementById("btn-analyze").addEventListener("click", async () => {
@@ -510,7 +597,7 @@ document.getElementById("btn-analyze").addEventListener("click", async () => {
   }
 });
 
-// ===== COMPARE — DROP ZONES =====
+// ===== COMPARE =====
 setupDrop("ref-drop", "cmp-ref", "ref-filename");
 setupDrop("act-drop", "cmp-act", "act-filename");
 

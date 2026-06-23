@@ -14,7 +14,7 @@ client = TestClient(app)
 def test_home():
     response = client.get("/")
     assert response.status_code == 200
-    assert "DocVault" in response.text
+    assert "DocMind" in response.text
 
 def test_document_analyzer_init_success(monkeypatch):
     fake_llm = object()
