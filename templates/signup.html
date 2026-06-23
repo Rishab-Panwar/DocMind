@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DocVault — Create account</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="/static/style.css" rel="stylesheet" />
+</head>
+<body>
+<div class="auth-page">
+
+  <!-- Left: Brand panel -->
+  <div class="auth-brand">
+    <div class="auth-brand-inner">
+      <div class="brand-logo-row">
+        <div class="brand-icon">🔐</div>
+        <span class="brand-name">DocVault</span>
+      </div>
+      <p class="brand-tagline">
+        Your documents, unlocked by AI. Get started in seconds — no setup required.
+      </p>
+      <ul class="feature-list">
+        <li><span class="feat-dot"></span>Upload PDF, DOCX, PPTX, CSV, SQLite & more</li>
+        <li><span class="feat-dot"></span>Ask questions, get grounded answers</li>
+        <li><span class="feat-dot"></span>Agentic RAG rewrites queries for better results</li>
+        <li><span class="feat-dot"></span>Compare document versions page-by-page</li>
+        <li><span class="feat-dot"></span>Evaluated with DeepEval on every deploy</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Right: Signup form -->
+  <div class="auth-form-panel">
+    <div class="auth-card">
+      <h2>Create your account</h2>
+      <p class="auth-subtitle">Get started with DocVault for free</p>
+
+      <div class="auth-field">
+        <label for="email">Email address</label>
+        <input id="email" type="email" placeholder="you@example.com" required />
+      </div>
+      <div class="auth-field">
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="Min. 8 characters" required />
+      </div>
+      <div class="auth-field">
+        <label for="name">Full name <span style="color:#3a5060">(optional)</span></label>
+        <input id="name" type="text" placeholder="Rishab Panwar" />
+      </div>
+
+      <div class="auth-actions">
+        <button id="btn-signup" class="btn primary full">Create account</button>
+      </div>
+      <div id="msg" class="msg-inline"></div>
+
+      <p class="auth-footer">
+        Already have an account? <a href="/login">Sign in</a>
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const btn = document.getElementById("btn-signup");
+  const msg = document.getElementById("msg");
+
+  async function signup() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const full_name = document.getElementById("name").value.trim() || null;
+    if (!email || !password) { msg.textContent = "Email and password are required."; msg.className = "msg-inline error"; return; }
+
+    btn.classList.add("loading");
+    btn.textContent = "";
+    msg.textContent = "";
+    msg.className = "msg-inline";
+
+    try {
+      const res = await fetch("/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, full_name })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      msg.textContent = "Account created! Redirecting to login…";
+      msg.className = "msg-inline success";
+      setTimeout(() => { window.location.href = "/login"; }, 900);
+    } catch (e) {
+      msg.textContent = e.message || "Signup failed.";
+      msg.className = "msg-inline error";
+      btn.classList.remove("loading");
+      btn.textContent = "Create account";
+    }
+  }
+
+  btn.addEventListener("click", signup);
+  document.addEventListener("keydown", e => { if (e.key === "Enter") signup(); });
+</script>
+</body>
+</html>

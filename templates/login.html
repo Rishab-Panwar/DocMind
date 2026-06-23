@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DocVault — Sign in</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="/static/style.css" rel="stylesheet" />
+</head>
+<body>
+<div class="auth-page">
+
+  <!-- Left: Brand panel -->
+  <div class="auth-brand">
+    <div class="auth-brand-inner">
+      <div class="brand-logo-row">
+        <div class="brand-icon">🔐</div>
+        <span class="brand-name">DocVault</span>
+      </div>
+      <p class="brand-tagline">
+        AI-powered document intelligence. Chat, analyze, and compare your documents with state-of-the-art RAG.
+      </p>
+      <ul class="feature-list">
+        <li><span class="feat-dot"></span>Conversational RAG with FlashrankRerank</li>
+        <li><span class="feat-dot"></span>Agentic AI via LangGraph — grade, rewrite, generate</li>
+        <li><span class="feat-dot"></span>Multimodal — understand images, tables & text</li>
+        <li><span class="feat-dot"></span>Deployed on AWS ECS Fargate with CI/CD</li>
+        <li><span class="feat-dot"></span>MCP server — connect Claude Desktop directly</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Right: Login form -->
+  <div class="auth-form-panel">
+    <div class="auth-card">
+      <h2>Welcome back</h2>
+      <p class="auth-subtitle">Sign in to your DocVault account</p>
+
+      <div class="auth-field">
+        <label for="email">Email address</label>
+        <input id="email" type="email" placeholder="you@example.com" required />
+      </div>
+      <div class="auth-field">
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="••••••••" required />
+      </div>
+
+      <div class="auth-actions">
+        <button id="btn-login" class="btn primary full">Sign in</button>
+      </div>
+      <div id="msg" class="msg-inline"></div>
+
+      <p class="auth-footer">
+        Don't have an account? <a href="/signup">Create one</a>
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const tokenKey = "dp_jwt";
+  // Verify existing token is still valid before auto-redirecting
+  const existingToken = localStorage.getItem(tokenKey);
+  if (existingToken) {
+    fetch("/protected", { headers: { "Authorization": `Bearer ${existingToken}` } })
+      .then(r => { if (r.ok) window.location.href = "/app"; else localStorage.removeItem(tokenKey); })
+      .catch(() => localStorage.removeItem(tokenKey));
+  }
+
+  const btn = document.getElementById("btn-login");
+  const msg = document.getElementById("msg");
+
+  async function login() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    if (!email || !password) { msg.textContent = "Please fill in all fields."; msg.className = "msg-inline error"; return; }
+
+    btn.classList.add("loading");
+    btn.textContent = "";
+    msg.textContent = "";
+    msg.className = "msg-inline";
+
+    try {
+      const body = new URLSearchParams({ username: email, password });
+      const res = await fetch("/auth/jwt/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      if (json.access_token) localStorage.setItem(tokenKey, json.access_token);
+      try { await fetch("/auth/cookie/login", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body }); } catch (_) {}
+      window.location.href = "/app";
+    } catch (e) {
+      msg.textContent = e.message || "Login failed.";
+      msg.className = "msg-inline error";
+      btn.classList.remove("loading");
+      btn.textContent = "Sign in";
+    }
+  }
+
+  btn.addEventListener("click", login);
+  document.addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+</script>
+</body>
+</html>

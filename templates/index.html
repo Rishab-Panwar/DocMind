@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DocVault</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="/static/style.css" rel="stylesheet" />
+  <!-- Markdown rendering for assistant answers (bold, tables, lists) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+  <style>
+    .bubble .md > *:first-child { margin-top: 0; }
+    .bubble .md > *:last-child { margin-bottom: 0; }
+    .bubble .md p { margin: 0 0 8px; }
+    .bubble .md ul, .bubble .md ol { margin: 0 0 8px; padding-left: 20px; }
+    .bubble .md li { margin: 2px 0; }
+    .bubble .md table { border-collapse: collapse; margin: 6px 0; width: 100%; font-size: 0.92em; }
+    .bubble .md th, .bubble .md td { border: 1px solid rgba(255,255,255,0.18); padding: 6px 10px; text-align: left; }
+    .bubble .md th { background: rgba(255,255,255,0.06); font-weight: 600; }
+    .bubble .md code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+    .bubble .md pre { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; overflow-x: auto; }
+    .bubble .md pre code { background: none; padding: 0; }
+    .bubble .md a { color: #8ab4ff; }
+  </style>
+</head>
+<body>
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<div class="app-layout">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-icon">🔐</div>
+      <span class="sidebar-name">DocVault</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Features</div>
+
+      <button class="nav-item active" data-tab="chat">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Doc Chat</span>
+      </button>
+
+      <button class="nav-item" data-tab="analysis">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Analyze</span>
+      </button>
+
+      <button class="nav-item" data-tab="compare">
+        <svg viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+        <span>Compare</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <button class="nav-item danger" id="btn-logout">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Sign out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="main-content">
+
+    <!-- ====== CHAT TAB ====== -->
+    <section id="tab-chat" class="tab-panel active">
+      <div class="panel-header">
+        <div>
+          <h2>Doc Chat</h2>
+          <p class="ph-sub">Upload documents, build an index, then ask questions</p>
+        </div>
+        <div class="engine-toggle">
+          <span id="engine-label-std" class="muted small">Standard RAG</span>
+          <label class="switch" title="Toggle agentic mode">
+            <input id="use-agent" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+          <span id="engine-label-ag" class="small" style="color:var(--accent-2)">Agentic</span>
+        </div>
+      </div>
+
+      <div class="chat-layout">
+
+        <!-- Left: settings -->
+        <div class="chat-settings">
+
+          <div class="settings-card">
+            <div class="settings-card-title">Documents</div>
+            <div class="drop-zone" id="drop-zone">
+              <div class="dz-icon">📄</div>
+              <p class="dz-title">Drop files here</p>
+              <p class="dz-hint">PDF, DOCX, TXT, PPTX, CSV…</p>
+              <input id="chat-files" type="file" multiple accept=".pdf,.docx,.txt,.pptx,.md,.csv,.xlsx,.xls,.db,.sqlite,.sqlite3,.json" />
+            </div>
+            <div id="file-list" class="file-list"></div>
+            <button id="btn-build" class="btn primary full">
+              <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Build Index
+            </button>
+            <div id="session-badge" class="session-badge" style="margin-top:10px"></div>
+          </div>
+
+          <div class="settings-card">
+            <details class="adv">
+              <summary>Advanced settings</summary>
+              <div class="adv-grid">
+                <div class="field">
+                  <label>Session ID</label>
+                  <input id="chat-session" type="text" placeholder="auto-generated" />
+                </div>
+                <div class="field">
+                  <label>Chunk size</label>
+                  <input id="chat-chunk" type="number" value="1000" min="200" step="100" />
+                </div>
+                <div class="field">
+                  <label>Chunk overlap</label>
+                  <input id="chat-overlap" type="number" value="200" min="0" step="50" />
+                </div>
+                <div class="field">
+                  <label>Top-K results</label>
+                  <input id="chat-k" type="number" value="5" min="1" max="20" />
+                </div>
+                <div class="field toggle-row">
+                  <span class="flabel">Session-based FAISS</span>
+                  <label class="switch"><input id="chat-sessionized" type="checkbox" checked /><span class="slider"></span></label>
+                </div>
+                <div class="field toggle-row">
+                  <span class="flabel">Multimodal (images)</span>
+                  <label class="switch"><input id="chat-mm" type="checkbox" /><span class="slider"></span></label>
+                </div>
+              </div>
+            </details>
+          </div>
+
+        </div>
+
+        <!-- Right: messages + input -->
+        <div class="chat-main">
+          <div class="messages" id="messages">
+            <div class="message assistant">
+              <div class="bubble">
+                👋 Hi! Upload your documents on the left and click <strong>Build Index</strong>. Then ask me anything about them.
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-input-bar">
+            <input id="chat-q" type="text" placeholder="Ask a question about your documents…" autocomplete="off" />
+            <button id="btn-ask" class="btn primary icon-only" title="Send">
+              <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====== ANALYSIS TAB ====== -->
+    <section id="tab-analysis" class="tab-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Analyze Document</h2>
+          <p class="ph-sub">Extract structured metadata from any document using LLM</p>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <div class="form-card">
+          <div class="form-card-title">Upload document</div>
+          <div class="upload-drop" id="an-drop">
+            <div class="upload-drop-icon">🔍</div>
+            <p>Drop your document here</p>
+            <p class="ud-hint">PDF, DOCX, PPTX, MD, TXT, XLSX, CSV, SQLite</p>
+            <p class="selected-name" id="an-filename"></p>
+            <input id="an-file" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
+          </div>
+          <button id="btn-analyze" class="btn primary">
+            <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Run Analysis
+          </button>
+        </div>
+
+        <div class="result-card">
+          <div class="result-card-head">
+            📋 Result
+          </div>
+          <pre class="code" id="an-json">Run analysis to see structured output here…</pre>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ====== COMPARE TAB ====== -->
+    <section id="tab-compare" class="tab-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Compare Documents</h2>
+          <p class="ph-sub">Page-by-page diff between two document versions</p>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <div class="form-card">
+          <div class="form-card-title">Upload documents</div>
+          <div class="compare-row">
+            <div>
+              <div class="upload-drop" id="ref-drop">
+                <div class="upload-drop-icon">📄</div>
+                <p>Reference file</p>
+                <p class="ud-hint">Original version</p>
+                <p class="selected-name" id="ref-filename"></p>
+                <input id="cmp-ref" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
+              </div>
+            </div>
+            <div>
+              <div class="upload-drop" id="act-drop">
+                <div class="upload-drop-icon">📝</div>
+                <p>Actual file</p>
+                <p class="ud-hint">Updated version</p>
+                <p class="selected-name" id="act-filename"></p>
+                <input id="cmp-act" type="file" accept=".pdf,.docx,.pptx,.md,.txt,.xlsx,.xls,.csv,.db,.sqlite,.sqlite3,.json" />
+              </div>
+            </div>
+          </div>
+          <button id="btn-compare" class="btn primary">
+            <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+            Compare
+          </button>
+        </div>
+
+        <div class="result-card">
+          <div class="result-card-head">🆚 Comparison Result</div>
+          <div class="table-wrap">
+            <table id="cmp-table">
+              <thead><tr><th>Page</th><th>Changes</th></tr></thead>
+              <tbody>
+                <tr><td class="td-page" colspan="2" style="color:var(--muted);text-align:center;padding:20px">No comparison yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div><!-- /main-content -->
+</div><!-- /app-layout -->
+
+<script>
+const API_BASE = "";
+const tokenKey = "dp_jwt";
+function getToken() { return localStorage.getItem(tokenKey); }
+function authHeader() { const t = getToken(); return t ? { "Authorization": `Bearer ${t}` } : {}; }
+
+if (!getToken()) { window.location.href = "/login"; }
+// Verify token is valid on load
+fetch("/protected", { headers: { "Authorization": `Bearer ${getToken()}` } })
+  .then(r => { if (!r.ok) { localStorage.removeItem(tokenKey); window.location.href = "/login"; } })
+  .catch(() => {});
+
+// ===== TOAST =====
+function toast(msg, type = "info") {
+  const c = document.getElementById("toast-container");
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span class="toast-dot"></span>${msg}`;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ===== SIDEBAR NAV =====
+document.querySelectorAll(".nav-item[data-tab]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item[data-tab]").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ===== LOGOUT =====
+document.getElementById("btn-logout").addEventListener("click", async () => {
+  try { await fetch("/auth/cookie/logout", { method: "POST" }); } catch (_) {}
+  localStorage.removeItem(tokenKey);
+  window.location.href = "/login";
+});
+
+// ===== CHAT — DROP ZONE =====
+const dropZone = document.getElementById("drop-zone");
+const chatFiles = document.getElementById("chat-files");
+const fileList = document.getElementById("file-list");
+
+["dragenter","dragover"].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add("drag-over"); }));
+["dragleave","drop"].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove("drag-over"); }));
+dropZone.addEventListener("drop", ev => { chatFiles.files = ev.dataTransfer.files; renderFiles(); });
+chatFiles.addEventListener("change", renderFiles);
+
+function renderFiles() {
+  fileList.innerHTML = "";
+  [...chatFiles.files].forEach(f => {
+    const chip = document.createElement("div");
+    chip.className = "file-chip";
+    chip.innerHTML = `<span>📎</span><span>${f.name}</span>`;
+    fileList.appendChild(chip);
+  });
+}
+
+// ===== CHAT — ENGINE TOGGLE =====
+const useAgent = document.getElementById("use-agent");
+const stdLabel = document.getElementById("engine-label-std");
+const agLabel = document.getElementById("engine-label-ag");
+useAgent.addEventListener("change", () => {
+  stdLabel.style.color = useAgent.checked ? "var(--muted)" : "var(--text)";
+  agLabel.style.color = useAgent.checked ? "var(--accent-2)" : "var(--muted)";
+});
+
+// ===== CHAT — BUILD INDEX =====
+let currentSession = null;
+let chatHistory = [];  // {role, content} turns for conversational memory
+const sessionBadge = document.getElementById("session-badge");
+
+document.getElementById("btn-build").addEventListener("click", async () => {
+  const files = chatFiles.files;
+  if (!files.length) { toast("Upload at least one file first.", "error"); return; }
+
+  const btn = document.getElementById("btn-build");
+  const origText = btn.innerHTML;
+  btn.classList.add("loading");
+  btn.innerHTML = "";
+
+  try {
+    const fd = new FormData();
+    [...files].forEach(f => fd.append("files", f));
+    const sid = document.getElementById("chat-session").value.trim();
+    if (sid) fd.append("session_id", sid);
+    fd.append("use_session_dirs", document.getElementById("chat-sessionized").checked ? "true" : "false");
+    fd.append("chunk_size", document.getElementById("chat-chunk").value || "1000");
+    fd.append("chunk_overlap", document.getElementById("chat-overlap").value || "200");
+    fd.append("k", document.getElementById("chat-k").value || "5");
+    fd.append("multimodal", document.getElementById("chat-mm").checked ? "true" : "false");
+
+    const res = await fetch(`${API_BASE}/chat/index`, { method: "POST", headers: { ...authHeader() }, body: fd });
+    if (!res.ok) { const e = await res.json().catch(() => ({ detail: res.statusText })); throw new Error(e.detail || `HTTP ${res.status}`); }
+    const json = await res.json();
+    currentSession = json.session_id || sid || null;
+    chatHistory = [];  // fresh conversation for a newly built index
+    sessionBadge.textContent = `✓ Session: ${currentSession || "(none)"}  ·  k=${json.k}`;
+    sessionBadge.classList.add("visible");
+    toast("Index built successfully.", "success");
+    addMessage("assistant", `Index ready! I've indexed ${files.length} file${files.length > 1 ? "s" : ""}. Ask me anything.`);
+  } catch (e) {
+    toast("Indexing failed: " + (e.message || e), "error");
+  } finally {
+    btn.classList.remove("loading");
+    btn.innerHTML = origText;
+  }
+});
+
+// ===== CHAT — MESSAGES =====
+const messagesEl = document.getElementById("messages");
+
+function addMessage(role, text, engine) {
+  const wrap = document.createElement("div");
+  wrap.className = `message ${role}`;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  if (role === "assistant") {
+    // Render markdown (bold, tables, lists) and sanitize against XSS.
+    const content = document.createElement("div");
+    content.className = "md";
+    content.innerHTML = DOMPurify.sanitize(marked.parse(text || ""));
+    bubble.appendChild(content);
+  } else {
+    bubble.textContent = text;
+  }
+  if (engine) {
+    const tag = document.createElement("div");
+    tag.className = `eng-tag ${engine === "LangGraph-AgenticRAG" ? "agent" : "lcel"}`;
+    tag.textContent = engine === "LangGraph-AgenticRAG" ? "Agentic RAG" : "Standard RAG";
+    bubble.appendChild(tag);
+  }
+  wrap.appendChild(bubble);
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return bubble;
+}
+
+const THINKING_WORDS = [
+  "Working", "Hustling", "Doing", "Actioning", "Accomplishing", "Actualizing",
+  "Wrangling", "Mustering", "Herding", "Tinkering", "Crafting", "Sussing",
+  "Cooking", "Pondering", "Noodling", "Brewing", "Finagling", "Conjuring",
+];
+
+function addThinking() {
+  const wrap = document.createElement("div");
+  wrap.className = "message assistant";
+  const bubble = document.createElement("div");
+  bubble.className = "bubble thinking";
+  wrap.appendChild(bubble);
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  let word = THINKING_WORDS[Math.floor(Math.random() * THINKING_WORDS.length)];
+  let dots = 0;
+  const render = () => { bubble.textContent = `${word}${"·".repeat(dots % 4)}`; };
+  render();
+  // Animate the dots quickly; rotate the gerund word every couple of seconds.
+  const dotTimer = setInterval(() => { dots++; render(); }, 350);
+  const wordTimer = setInterval(() => {
+    let w; do { w = THINKING_WORDS[Math.floor(Math.random() * THINKING_WORDS.length)]; } while (w === word);
+    word = w; dots = 0; render();
+  }, 2200);
+  wrap._timers = [dotTimer, wordTimer];
+  return wrap;
+}
+
+function removeThinking(wrap) {
+  (wrap._timers || []).forEach(clearInterval);
+  wrap.remove();
+}
+
+// ===== CHAT — ASK =====
+const askBtn = document.getElementById("btn-ask");
+const chatInput = document.getElementById("chat-q");
+
+async function sendQuestion() {
+  const q = chatInput.value.trim();
+  if (!q) return;
+  const useSess = document.getElementById("chat-sessionized").checked;
+  if (useSess && !currentSession) { toast("Build the index first.", "error"); return; }
+
+  addMessage("user", q);
+  chatInput.value = "";
+  const thinkEl = addThinking();
+
+  askBtn.disabled = true;
+  try {
+    const fd = new FormData();
+    fd.append("question", q);
+    fd.append("use_session_dirs", useSess ? "true" : "false");
+    fd.append("k", document.getElementById("chat-k").value || "5");
+    if (useSess && currentSession) fd.append("session_id", currentSession);
+    const mm = document.getElementById("chat-mm").checked;
+    fd.append("multimodal", mm ? "true" : "false");
+    // Send recent turns so follow-ups ("how many days is that?") resolve.
+    fd.append("chat_history", JSON.stringify(chatHistory.slice(-12)));
+
+    const isAgent = useAgent.checked && !mm;
+    const endpoint = isAgent ? `${API_BASE}/chat/agent_query` : `${API_BASE}/chat/query`;
+
+    const res = await fetch(endpoint, { method: "POST", headers: { ...authHeader() }, body: fd });
+    if (!res.ok) { const e = await res.json().catch(() => ({ detail: res.statusText })); throw new Error(e.detail || `HTTP ${res.status}`); }
+    const json = await res.json();
+    removeThinking(thinkEl);
+    const answer = json.answer || "No answer.";
+    addMessage("assistant", answer, json.engine);
+    // Record the turn for conversational memory.
+    chatHistory.push({ role: "user", content: q });
+    chatHistory.push({ role: "assistant", content: answer });
+    if (chatHistory.length > 24) chatHistory = chatHistory.slice(-24);
+  } catch (e) {
+    removeThinking(thinkEl);
+    addMessage("assistant", "Error: " + (e.message || e));
+    toast("Query failed: " + (e.message || e), "error");
+  } finally {
+    askBtn.disabled = false;
+  }
+}
+
+askBtn.addEventListener("click", sendQuestion);
+chatInput.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); } });
+
+// ===== ANALYSIS — DROP ZONE =====
+const anFile = document.getElementById("an-file");
+anFile.addEventListener("change", () => {
+  const f = anFile.files[0];
+  document.getElementById("an-filename").textContent = f ? f.name : "";
+});
+setupDrop("an-drop", "an-file", "an-filename");
+
+document.getElementById("btn-analyze").addEventListener("click", async () => {
+  const file = anFile.files[0];
+  const out = document.getElementById("an-json");
+  if (!file) { toast("Please upload a file first.", "error"); return; }
+
+  const btn = document.getElementById("btn-analyze");
+  const orig = btn.innerHTML;
+  btn.classList.add("loading"); btn.innerHTML = "";
+  out.textContent = "Running analysis…";
+
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${API_BASE}/analyze`, { method: "POST", headers: { ...authHeader() }, body: fd });
+    if (!res.ok) { const e = await res.json().catch(() => ({ detail: res.statusText })); throw new Error(e.detail || `HTTP ${res.status}`); }
+    out.textContent = JSON.stringify(await res.json(), null, 2);
+    toast("Analysis complete.", "success");
+  } catch (e) {
+    out.textContent = "Error: " + (e.message || e);
+    toast("Analysis failed: " + (e.message || e), "error");
+  } finally {
+    btn.classList.remove("loading"); btn.innerHTML = orig;
+  }
+});
+
+// ===== COMPARE — DROP ZONES =====
+setupDrop("ref-drop", "cmp-ref", "ref-filename");
+setupDrop("act-drop", "cmp-act", "act-filename");
+
+document.getElementById("btn-compare").addEventListener("click", async () => {
+  const ref = document.getElementById("cmp-ref").files[0];
+  const act = document.getElementById("cmp-act").files[0];
+  const tbody = document.querySelector("#cmp-table tbody");
+  if (!ref || !act) { toast("Upload both files first.", "error"); return; }
+
+  const btn = document.getElementById("btn-compare");
+  const orig = btn.innerHTML;
+  btn.classList.add("loading"); btn.innerHTML = "";
+  tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:20px">Comparing…</td></tr>`;
+
+  try {
+    const fd = new FormData();
+    fd.append("reference", ref);
+    fd.append("actual", act);
+    const res = await fetch(`${API_BASE}/compare`, { method: "POST", headers: { ...authHeader() }, body: fd });
+    if (!res.ok) { const e = await res.json().catch(() => ({ detail: res.statusText })); throw new Error(e.detail || `HTTP ${res.status}`); }
+    const json = await res.json();
+    const rows = json.rows || [];
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:20px">No differences found.</td></tr>`;
+    } else {
+      tbody.innerHTML = rows.map(r => {
+        const page = r.Page ?? r.page ?? "";
+        const chg = r.Changes ?? r.changes ?? "";
+        return `<tr><td class="td-page">${page}</td><td>${chg}</td></tr>`;
+      }).join("");
+    }
+    toast("Comparison complete.", "success");
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--danger);padding:16px">${e.message || e}</td></tr>`;
+    toast("Comparison failed: " + (e.message || e), "error");
+  } finally {
+    btn.classList.remove("loading"); btn.innerHTML = orig;
+  }
+});
+
+// ===== HELPER: drag-drop for upload zones =====
+function setupDrop(zoneId, inputId, filenameId) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  const nameEl = document.getElementById(filenameId);
+  if (!zone || !input) return;
+  ["dragenter","dragover"].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.add("drag-over"); }));
+  ["dragleave","drop"].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.remove("drag-over"); }));
+  zone.addEventListener("drop", ev => {
+    if (ev.dataTransfer.files.length) {
+      const dt = new DataTransfer();
+      dt.items.add(ev.dataTransfer.files[0]);
+      input.files = dt.files;
+      if (nameEl) nameEl.textContent = ev.dataTransfer.files[0].name;
+    }
+  });
+  input.addEventListener("change", () => { if (nameEl && input.files[0]) nameEl.textContent = input.files[0].name; });
+}
+</script>
+</body>
+</html>
