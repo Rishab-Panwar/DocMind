@@ -38,26 +38,12 @@ def test_protected_authorized(monkeypatch):
 
 
 def test_pages_and_redirects():
-    # Public pages
-    for path in ["/", "/login", "/signup"]:
+    # Auth removed: "/" and "/app" serve the app; "/login" & "/signup" redirect
+    # to "/" (TestClient follows redirects), so all return 200 with content.
+    for path in ["/", "/app", "/login", "/signup"]:
         resp = client.get(path)
         assert resp.status_code == 200
         assert isinstance(resp.text, str) and len(resp.text) > 0
-
-    # /app should redirect to /login when unauthenticated
-    resp = client.get("/app", follow_redirects=False)
-    assert resp.status_code == 302
-    assert resp.headers.get("location") == "/login"
-
-
-def test_analyze_unauthorized(monkeypatch):
-    # Force _is_test_request to False so auth is enforced in tests
-    monkeypatch.setattr("api.main._is_test_request", lambda request: False)
-
-    fake_pdf = io.BytesIO(b"%PDF-1.4 test")
-    files = {"file": ("sample.pdf", fake_pdf, "application/pdf")}
-    resp = client.post("/analyze", files=files)
-    assert resp.status_code == 401
 
 
 def test_analyze_happy_path(monkeypatch):
@@ -120,19 +106,6 @@ def test_analyze_failure(monkeypatch):
     resp = client.post("/analyze", files=files)
     assert resp.status_code == 500
     assert "Analysis failed" in resp.json().get("detail", "")
-
-
-def test_compare_unauthorized(monkeypatch):
-    monkeypatch.setattr("api.main._is_test_request", lambda request: False)
-
-    ref = io.BytesIO(b"a")
-    act = io.BytesIO(b"b")
-    files = {
-        "reference": ("ref.pdf", ref, "application/pdf"),
-        "actual": ("act.pdf", act, "application/pdf"),
-    }
-    resp = client.post("/compare", files=files)
-    assert resp.status_code == 401
 
 
 def test_compare_happy_path(monkeypatch):

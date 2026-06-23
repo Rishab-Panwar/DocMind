@@ -105,27 +105,23 @@ app.include_router(
 )
 
 @app.get("/", response_class=HTMLResponse)
-async def root_login(request: Request):
-    resp = templates.TemplateResponse("login.html", {"request": request})
+async def root_page(request: Request):
+    # Authentication removed: the app (landing + tools) is served directly.
+    resp = templates.TemplateResponse("index.html", {"request": request})
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    resp = templates.TemplateResponse("login.html", {"request": request})
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
+# Legacy auth routes kept as redirects so old links don't 404.
+@app.get("/login")
+async def login_page():
+    return RedirectResponse(url="/", status_code=302)
 
-@app.get("/signup", response_class=HTMLResponse)
-async def signup_page(request: Request):
-    resp = templates.TemplateResponse("signup.html", {"request": request})
-    resp.headers["Cache-Control"] = "no-store"
-    return resp
+@app.get("/signup")
+async def signup_page():
+    return RedirectResponse(url="/", status_code=302)
 
 @app.get("/app", response_class=HTMLResponse)
-async def app_home(request: Request, user: Optional[User] = Depends(fastapi_users.current_user(optional=True))):
-    if not user:
-        return RedirectResponse(url="/login", status_code=302)
+async def app_home(request: Request):
     resp = templates.TemplateResponse("index.html", {"request": request})
     resp.headers["Cache-Control"] = "no-store"
     return resp
@@ -148,8 +144,6 @@ async def analyze_document(
     user: Optional[User] = Depends(fastapi_users.current_user(optional=True)),
 ) -> Any:
     try:
-        if not user and not _is_test_request(request):
-            raise HTTPException(status_code=401, detail="Not authenticated")
         log.info(f"Received file for analysis: {file.filename}")
         dh = DocHandler()
         saved_path = dh.save_file(FastAPIFileAdapter(file))
@@ -173,8 +167,6 @@ async def compare_documents(
     user: Optional[User] = Depends(fastapi_users.current_user(optional=True)),
 ) -> Any:
     try:
-        if not user and not _is_test_request(request):
-            raise HTTPException(status_code=401, detail="Not authenticated")
         log.info(f"Comparing files: {reference.filename} vs {actual.filename}")
         dc = DocumentComparator()
         ref_path, act_path = dc.save_uploaded_files(
@@ -206,8 +198,6 @@ async def chat_build_index(
     user: Optional[User] = Depends(fastapi_users.current_user(optional=True)),
 ) -> Any:
     try:
-        if not user and not _is_test_request(request):
-            raise HTTPException(status_code=401, detail="Not authenticated")
         log.info(f"Indexing chat session. Session ID: {session_id}, Files: {[f.filename for f in files]}")
         wrapped = [FastAPIFileAdapter(f) for f in files]
         if multimodal:
@@ -250,8 +240,6 @@ async def chat_query(
     user: Optional[User] = Depends(fastapi_users.current_user(optional=True)),
 ) -> Any:
     try:
-        if not user and not _is_test_request(request):
-            raise HTTPException(status_code=401, detail="Not authenticated")
         log.info(f"Received chat query: '{question}' | session: {session_id}")
         if use_session_dirs and not session_id:
             raise HTTPException(status_code=400, detail="session_id is required when use_session_dirs=True")
@@ -312,8 +300,6 @@ async def agent_query(
     relevant — giving more accurate answers for ambiguous questions.
     """
     try:
-        if not user and not _is_test_request(request):
-            raise HTTPException(status_code=401, detail="Not authenticated")
 
         index_dir = os.path.join(FAISS_BASE, session_id)
         if not os.path.isdir(index_dir):
