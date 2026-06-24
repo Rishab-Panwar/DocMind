@@ -124,22 +124,22 @@
   <section class="section problem">
     <div class="problem-left">
       <div class="section-label">The Problem</div>
-      <h2 class="section-title">Documents read.<br><em>DocMind understands.</em></h2>
-      <p class="section-lead">Search and Ctrl-F find words. They don't tell you what a document means, what the numbers add up to, or how two versions differ.</p>
+      <h2 class="section-title">Documents pile up.<br><em>Answers don't.</em></h2>
+      <p class="section-lead">Search finds words, not answers. It won't connect what's spread across your formats, tell you what a document really means, or show what changed between versions.</p>
     </div>
     <div class="problem-items">
       <div class="problem-item">
-        <div class="pi-icon">🔎</div>
+        <div class="pi-icon">🗂️</div>
         <div>
-          <strong>Answers hide in the noise</strong>
-          <p>The one line you actually need is buried under pages of boilerplate. Finding it by hand is slow and easy to miss.</p>
+          <strong>Mixed formats, no common ground</strong>
+          <p>Numbers in a sheet, terms in a PDF, notes in a doc. Nothing connects them into a single answer.</p>
         </div>
       </div>
       <div class="problem-item">
-        <div class="pi-icon">📊</div>
+        <div class="pi-icon">🧾</div>
         <div>
-          <strong>Numbers need computing, not reading</strong>
-          <p>Ledgers and tables don't hand you a total just by being read. Real questions need real math, done exactly.</p>
+          <strong>The gist takes too long</strong>
+          <p>Getting the who, what and when from a long document is slow, and skimming makes you miss what matters.</p>
         </div>
       </div>
       <div class="problem-item">
@@ -160,8 +160,8 @@
       <div class="how-step">
         <div class="hs-num">1</div>
         <h3>Two retrieval engines</h3>
-        <p>Standard RAG for fast, grounded answers, and an Agentic RAG that grades context and computes over tables. The right engine for each question.</p>
-        <div class="hs-quote">Standard RAG vs Agentic RAG</div>
+        <p><strong>Standard RAG:</strong> a fast MMR plus cross-encoder reranking pipeline.<br><strong>Agentic RAG:</strong> a LangGraph agent that grades context, rewrites the query, and computes over tables.</p>
+        <div class="hs-quote">LangGraph · MMR · Cross-encoder rerank</div>
       </div>
       <div class="how-step">
         <div class="hs-num">2</div>
@@ -195,7 +195,7 @@
         <h2 class="cta-title">Your documents,<br>finally <em>answerable.</em></h2>
         <p>Upload a file and start asking. No setup, no syntax, just answers.</p>
       </div>
-      <button class="btn light lg" data-feature="chat">Get started</button>
+      <a href="#features" class="btn light lg">Get started</a>
     </div>
   </section>
 
@@ -322,7 +322,6 @@
         <div class="field"><label>Chunk overlap</label><input id="chat-overlap" type="number" value="200" min="0" step="50" /></div>
         <div class="field"><label>Top-K results</label><input id="chat-k" type="number" value="5" min="1" max="20" /></div>
         <div class="field toggle-row"><span class="flabel">Session-based FAISS</span><label class="switch"><input id="chat-sessionized" type="checkbox" checked /><span class="slider"></span></label></div>
-        <div class="field toggle-row"><span class="flabel">Multimodal (images)</span><label class="switch"><input id="chat-mm" type="checkbox" /><span class="slider"></span></label></div>
       </div>
     </details>
 
@@ -430,7 +429,7 @@ document.getElementById("btn-build").addEventListener("click", async () => {
     fd.append("use_session_dirs", document.getElementById("chat-sessionized").checked ? "true" : "false");
     fd.append("chunk_size", document.getElementById("chat-chunk").value || "1000");
     fd.append("chunk_overlap", document.getElementById("chat-overlap").value || "200");
-    fd.append("multimodal", document.getElementById("chat-mm").checked ? "true" : "false");
+    fd.append("multimodal", "false");
 
     const res = await fetch(`${API_BASE}/chat/index`, { method: "POST", headers: { ...authHeader() }, body: fd });
     if (!res.ok) { const e = await res.json().catch(() => ({ detail: res.statusText })); throw new Error(e.detail || `HTTP ${res.status}`); }
@@ -540,11 +539,10 @@ async function sendQuestion() {
     fd.append("question", q);
     fd.append("use_session_dirs", useSess ? "true" : "false");
     if (useSess && currentSession) fd.append("session_id", currentSession);
-    const mm = document.getElementById("chat-mm").checked;
-    fd.append("multimodal", mm ? "true" : "false");
+    fd.append("multimodal", "false");
     fd.append("chat_history", JSON.stringify(chatHistory.slice(-12)));
 
-    const isAgent = useAgent.checked && !mm;
+    const isAgent = useAgent.checked;
     const endpoint = isAgent ? `${API_BASE}/chat/agent_query` : `${API_BASE}/chat/query`;
 
     const res = await fetch(endpoint, { method: "POST", headers: { ...authHeader() }, body: fd });
