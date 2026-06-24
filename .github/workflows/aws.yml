@@ -59,6 +59,10 @@ jobs:
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
+          # Also publish :latest so the initial task definition/service has an
+          # image to pull before the first SHA-tagged deploy.
+          docker tag $IMAGE_URI $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
 
   # -------------------------------

@@ -31,7 +31,7 @@
       "secrets": [
         {
           "name": "GCP_SA_JSON",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:683123961541:secret:docmind/gcp-sa-REPLACE_WITH_REAL_SUFFIX"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:683123961541:secret:docmind/gcp-sa-HBlT9x"
         }
       ],
       "logConfiguration": {
