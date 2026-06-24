@@ -17,7 +17,7 @@ from prompt.prompt_library import PROMPT_REGISTRY
 from model.models import PromptType
 from src.document_chat.agent_rag import (
     _unique_sources, _strip_source_tags, _format_manifest, _is_file_list_query,
-    contextualize_question, _load_index_cached,
+    contextualize_question, _load_index_cached, adaptive_k, looks_broad,
 )
 
 try:
@@ -157,6 +157,16 @@ class ConversationalRAG:
             # history before any retrieval or short-circuit runs.
             if chat_history:
                 user_input = contextualize_question(self.llm, user_input, chat_history)
+            # Adapt retrieval breadth to the question + document size: broad
+            # summaries cover the whole doc; specific questions on a large doc
+            # widen a little; small docs / normal queries stay lean.
+            base_ret = getattr(self, "_base_retriever", None) or self.retriever
+            if base_ret is not None and getattr(self, "vectorstore", None) is not None:
+                base_k = base_ret.search_kwargs.get("k", 5)
+                ak = adaptive_k(self.vectorstore, base_k, user_input)
+                base_ret.search_kwargs["k"] = ak["k"]
+                base_ret.search_kwargs["fetch_k"] = ak["fetch_k"]
+                log.info("ConversationalRAG: adaptive k", k=ak["k"], broad=looks_broad(user_input), session_id=self.session_id)
             # Explicit "list the indexed files" questions → answer from the
             # manifest, not vector search / document content.
             if _is_file_list_query(user_input) and getattr(self, "vectorstore", None) is not None:

@@ -143,6 +143,45 @@ def _unique_sources(vectorstore) -> List[str]:
         return []
 
 
+# Broad / whole-document questions (summaries, overviews, "all the X") need the
+# retriever to cover most of the document, not just the top-k nearest chunks.
+_BROAD_HINTS = re.compile(
+    r"(?ix)\b("
+    r"summar(?:y|ies|ize|ise|ising|izing)|overview|recap|tl;?dr|"
+    r"all\s+the|all\s+of|each\b|every\b|list\s+all|"
+    r"what\s+are\s+all|across\s+all|whole\s+(?:document|doc|file|report)"
+    r")\b"
+)
+
+
+def looks_broad(question: str) -> bool:
+    """True for whole-document questions (summaries/overviews/'all the ...')."""
+    return bool(question) and bool(_BROAD_HINTS.search(question))
+
+
+def adaptive_k(vectorstore, base_k: int, question: str, *, broad_cap: int = 60, specific_floor: int = 16) -> dict:
+    """Pick retrieval breadth from the question and document size.
+
+    - Broad questions (summaries) retrieve enough to span the whole document, so
+      "summarize everything" doesn't miss sections that ranked below a small k.
+    - Specific questions on a large document retrieve a bit wider than the small
+      default so the right section isn't missed.
+    - Small documents and normal queries stay at/under base_k, so latency on the
+      common case (short docs / ledgers) is unchanged. Never asks for more chunks
+      than the index holds. Returns {"k", "fetch_k"}.
+    """
+    try:
+        total = len(vectorstore.docstore._dict)
+    except Exception:
+        total = base_k
+    if looks_broad(question):
+        k = min(total, broad_cap)
+    else:
+        k = min(total, max(base_k, specific_floor))
+    k = max(1, k)
+    return {"k": k, "fetch_k": max(20, k * 4)}
+
+
 class RAGState(TypedDict):
     question: str          # the user's original question — NEVER mutated
     retrieval_query: str   # query used for vector search; rewrite updates only this
@@ -229,6 +268,15 @@ class AgenticRAG:
                     if table_ans is not None:
                         log.info("AgenticRAG: answered via table compute", session_id=self.session_id)
                         return table_ans
+            # Adapt retrieval breadth to the question + document size: broad
+            # "summarize everything" questions cover the whole doc; specific
+            # questions on a large doc widen a little; small docs stay lean.
+            if self.retriever is not None and self.vectorstore is not None:
+                base_k = self.retriever.search_kwargs.get("k", 10)
+                ak = adaptive_k(self.vectorstore, base_k, question)
+                self.retriever.search_kwargs["k"] = ak["k"]
+                self.retriever.search_kwargs["fetch_k"] = ak["fetch_k"]
+                log.info("AgenticRAG: adaptive k", k=ak["k"], broad=looks_broad(question), session_id=self.session_id)
             initial: RAGState = {
                 "question": question,
                 "retrieval_query": question,
