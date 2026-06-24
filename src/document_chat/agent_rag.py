@@ -95,6 +95,15 @@ def _strip_source_tags(text: str) -> str:
     return cleaned.strip()
 
 
+# Uploads are saved as "<name>_<6 hex>.<ext>" (a uuid suffix keeps names unique).
+# Strip that suffix for display so answers show the original-looking filename
+# (rosmerta_753005.xlsx -> rosmerta.xlsx). Display-only; retrieval is unaffected.
+def clean_filename(name: str) -> str:
+    if not name:
+        return name
+    return re.sub(r"_[0-9a-f]{6}(\.[^.]+)$", r"\1", name)
+
+
 # Per-index cache of the loaded FAISS vectorstore + parsed tables, keyed by
 # index path and invalidated when the index file is rewritten (re-indexed).
 _INDEX_CACHE: dict = {}
@@ -134,7 +143,7 @@ def _unique_sources(vectorstore) -> List[str]:
     try:
         docs = vectorstore.docstore._dict.values()
         names = {
-            os.path.basename((d.metadata or {}).get("source", ""))
+            clean_filename(os.path.basename((d.metadata or {}).get("source", "")))
             for d in docs
             if (d.metadata or {}).get("source")
         }
@@ -373,7 +382,7 @@ class AgenticRAG:
         # Prefix each chunk with its source filename so the model can attribute
         # content to the right file (per-file summaries, "which files" questions).
         context = "\n\n".join(
-            f"[Source: {os.path.basename((d.metadata or {}).get('source', '') ) or 'unknown'}]\n{d.page_content}"
+            f"[Source: {clean_filename(os.path.basename((d.metadata or {}).get('source', ''))) or 'unknown'}]\n{d.page_content}"
             for d in documents
         )
         # The file manifest is provided as a *reference* (not the headline) so

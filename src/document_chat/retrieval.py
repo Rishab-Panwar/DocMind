@@ -18,6 +18,7 @@ from model.models import PromptType
 from src.document_chat.agent_rag import (
     _unique_sources, _strip_source_tags, _format_manifest, _is_file_list_query,
     contextualize_question, _load_index_cached, adaptive_k, looks_broad,
+    clean_filename,
 )
 
 try:
@@ -279,7 +280,7 @@ class ConversationalRAG:
         for d in docs:
             content = getattr(d, "page_content", str(d))
             src = (getattr(d, "metadata", {}) or {}).get("source", "")
-            name = os.path.basename(src) if src else "unknown"
+            name = clean_filename(os.path.basename(src)) if src else "unknown"
             parts.append(f"[Source: {name}]\n{content}")
         # Prepend the full file manifest so "which/how many files" questions are
         # answerable from context regardless of phrasing — no intent routing.

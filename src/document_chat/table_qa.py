@@ -314,6 +314,94 @@ def _closest(name: Optional[str], tables: Dict[str, pd.DataFrame]) -> Optional[s
     return None
 
 
+def _clean_name(name: str) -> str:
+    """Strip the short uuid suffix added at upload time (rosmerta_753005.xlsx ->
+    rosmerta.xlsx) so answers show the original-looking filename."""
+    return re.sub(r"_[0-9a-f]{6}(\.[^.]+)$", r"\1", name)
+
+
+def _result_numbers(result) -> list:
+    """Every finite numeric value in a computed result — the exact values the
+    formatted answer is allowed to contain."""
+    out: list = []
+
+    def add(v):
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return
+        if f == f and abs(f) != float("inf"):  # drop NaN/inf
+            out.append(f)
+
+    if isinstance(result, pd.Series):
+        for v in result.tolist():
+            add(v)
+    elif isinstance(result, pd.DataFrame):
+        for v in result.to_numpy().ravel().tolist():
+            add(v)
+    elif isinstance(result, dict):
+        for v in result.values():
+            add(v)
+    elif isinstance(result, (list, tuple)):
+        for v in result:
+            add(v)
+    else:
+        add(result)
+    return out
+
+
+_NUM_RE = re.compile(r"-?\d[\d,]*\.?\d*")
+
+
+def _verify_numbers(text: str, allowed: list) -> bool:
+    """True if every exact computed value appears verbatim in `text`. This guards
+    against the LLM rounding, truncating or dropping a value (a rounded number
+    won't equal the exact one, so it'd be missing -> fail). Extra numbers in the
+    text (e.g. digits inside a filename like 'yes-475', or a year in a date) are
+    ignored, so the guard isn't brittle. If a computed value is missing/altered,
+    the caller falls back to the exact deterministic answer."""
+    toks = []
+    for tok in _NUM_RE.findall(text):
+        tok = tok.strip().strip(".").replace(",", "")
+        if tok and any(c.isdigit() for c in tok):
+            try:
+                toks.append(float(tok))
+            except ValueError:
+                pass
+    for a in allowed:
+        if not any(abs(a - t) < 0.01 for t in toks):
+            return False
+    return True
+
+
+def _present_answer(llm, question: str, result, clean_file: str) -> Optional[str]:
+    """Format the EXACT computed values into a clean Markdown answer via the LLM,
+    then verify it didn't change any number. Returns the formatted answer, or
+    None if verification fails (caller falls back to the deterministic answer)."""
+    values = _humanize_result(result)
+    prompt = ChatPromptTemplate.from_template(
+        "You are formatting an ALREADY-COMPUTED result into a clean answer. "
+        "Do not calculate anything yourself.\n\n"
+        'Question: "{q}"\n'
+        "Source file: {file}\n"
+        "Computed values (exact and final, the single source of truth):\n{values}\n\n"
+        "Rules:\n"
+        "- Use ONLY the numbers above, exactly as written. Do NOT recompute, "
+        "round, reorder digits, or invent any number, date, or fact.\n"
+        "- Format as short Markdown: bold the labels, one item per line.\n"
+        "- End with a line '**Answer:** ...' that directly answers the question.\n"
+        "- Mention the source file once. Do not add values not listed above.\n"
+        "Output only the formatted answer."
+    )
+    out = (prompt | llm | StrOutputParser()).invoke(
+        {"q": question, "file": clean_file, "values": values}
+    ).strip()
+    if out and _verify_numbers(out, _result_numbers(result)):
+        return out
+    log.warning("table_qa: presenter output failed number check; using deterministic")
+    return None
+
+
 def answer_with_tables(llm, question: str, tables: Dict[str, pd.DataFrame]) -> Optional[str]:
     """Return an exact computed answer for computational questions, or None to
     let the RAG path handle descriptive/semantic questions."""
@@ -400,13 +488,21 @@ def answer_with_tables(llm, question: str, tables: Dict[str, pd.DataFrame]) -> O
         return None
     result_str = _format_result(result)
     log.info("table_qa: computed", table=name, expr=expr, result=result_str[:120])
-    # Format the exact computed value deterministically instead of paying a
-    # second LLM round-trip to phrase it — keeps the value exact and saves
-    # ~one slow call per computational query. Never let a formatting edge case
-    # (NaN, odd types) crash the request — fall back to the raw value string.
-    file = name.split("::")[0]
+    clean_file = _clean_name(name.split("::")[0])
+    # Deterministic, exact answer — always correct, used as the safe fallback.
     try:
-        return f"According to {file}, {_humanize_result(result)}."
+        deterministic = f"According to {clean_file}, {_humanize_result(result)}."
     except Exception as e:
         log.warning("table_qa: result formatting failed", error=str(e))
-        return f"According to {file}: {result_str}"
+        deterministic = f"According to {clean_file}: {result_str}"
+    # Try a nicely-formatted Markdown answer via the LLM, but only use it if a
+    # number-verification guard confirms it didn't alter any computed value;
+    # otherwise return the exact deterministic answer. The guard is local (no
+    # extra latency); only the presenter call costs ~1-2s, on compute questions.
+    try:
+        presented = _present_answer(llm, question, result, clean_file)
+        if presented:
+            return presented
+    except Exception as e:
+        log.warning("table_qa: presenter failed; using deterministic", error=str(e))
+    return deterministic
