@@ -98,7 +98,11 @@ def main():
         log.info("Running in LOCAL mode: .env loaded")
 
     data_dir = Path(DEEPEVAL_INPUT_DIR)
-    assert data_dir.exists(), f"Input dir not found: {data_dir}"
+    # CI-friendly skip: needs a judge LLM key and the eval dataset, which CI
+    # doesn't have. Exit cleanly (step stays green) when they're missing.
+    if not os.getenv("GROQ_API_KEY") or not data_dir.exists():
+        print(f"[DeepEval MM] Skipped: needs GROQ_API_KEY and input dir '{data_dir}'.")
+        sys.exit(0)
     paths = list_supported_files(data_dir)
     if not paths:
         log.error("No supported files found in input directory", dir=str(data_dir))

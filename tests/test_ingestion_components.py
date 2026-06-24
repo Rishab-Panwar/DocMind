@@ -9,6 +9,15 @@ import pytest
 from langchain_core.documents import Document
 
 from src.document_ingestion.data_ingestion import FaissManager, ChatIngestor, DocHandler, DocumentComparator
+from utils.model_loader import ModelLoader
+
+
+@pytest.fixture(autouse=True)
+def _stub_embeddings(monkeypatch):
+    """FaissManager builds an embeddings client on init, which needs an API key
+    that CI doesn't have. These tests mock FAISS, so the embeddings object is
+    never actually used — stub it out so the suite runs without any keys."""
+    monkeypatch.setattr(ModelLoader, "load_embeddings", lambda self: object())
 
 
 def test_faissmanager_no_data_raises(tmp_path, monkeypatch):
