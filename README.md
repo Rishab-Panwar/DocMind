@@ -2,15 +2,15 @@
 
 <img width="80" height="80" alt="ChatGPT Image May 29, 2026, 06_10_06 PM" src="https://github.com/user-attachments/assets/8f64a368-fdcd-472c-ae2e-8ca2911c2258">
 
-# DocVault
+# DocMind
 
 *AI-powered document intelligence. Chat, analyze, compare, and query — in one platform.*
 
 [Features](#features) · [Architecture](#system-architecture) · [Tech Stack](#tech-stack) · [Local Setup](#local-setup)
 
-DocVault is an AI document platform with **conversational RAG**, **agentic query rewriting** via LangGraph, **multimodal PDF understanding**, structured metadata extraction, and a **built-in MCP server** for Claude Desktop and Cursor. Production-deployed on AWS ECS with a full CI/CD pipeline.
+DocMind is an AI document platform with **conversational RAG**, **agentic query rewriting** via LangGraph, **multimodal PDF understanding**, structured metadata extraction, and a **built-in MCP server** for Claude Desktop and Cursor. Production-deployed on AWS ECS with a full CI/CD pipeline.
 
-**Live:** [docvault.rishabai.me](https://docvault.rishabai.me)
+**Live:** [docmind.rishabai.me](https://docmind.rishabai.me)
 
 </div>
 
@@ -45,7 +45,7 @@ graph TB
 
     subgraph AWS["AWS Infrastructure"]
         ACM["ACM\nSSL Certificate"]
-        ALB["Application Load Balancer\ndocvault.rishabai.me"]
+        ALB["Application Load Balancer\ndocmind.rishabai.me"]
         ECS["ECS Fargate\nFastAPI · Port 8080"]
         ECR["Amazon ECR\nDocker Registry"]
         SM["Secrets Manager\nAPI Keys"]
@@ -138,7 +138,7 @@ graph LR
         ALB2["Application Load Balancer"]
         SM2["Secrets Manager\napikeyliveclass"]
         ACM2["ACM\nSSL Cert"]
-        Route53["Namecheap DNS\ndocvault.rishabai.me"]
+        Route53["Namecheap DNS\ndocmind.rishabai.me"]
     end
 
     GH --> CI
@@ -257,7 +257,7 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "docvault": {
+    "docmind": {
       "command": "python",
       "args": ["/absolute/path/to/mcp_server/server.py"]
     }

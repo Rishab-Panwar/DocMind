@@ -1,5 +1,5 @@
 """
-DocVault MCP Server
+DocMind MCP Server
 
 Exposes the document portal's RAG capabilities as MCP tools so that
 Claude Desktop, Cursor, and any MCP-compatible client can query your
@@ -16,7 +16,7 @@ Usage (stdio transport, works with Claude Desktop):
 Claude Desktop config (~/.claude/claude_desktop_config.json):
     {
       "mcpServers": {
-        "docvault": {
+        "docmind": {
           "command": "python",
           "args": ["<absolute-path>/mcp_server/server.py"]
         }
@@ -46,7 +46,7 @@ init_llm_cache()
 FAISS_BASE = os.getenv("FAISS_BASE", "faiss_index")
 FAISS_INDEX_NAME = os.getenv("FAISS_INDEX_NAME", "index")
 
-mcp = FastMCP("DocVault")
+mcp = FastMCP("DocMind")
 
 
 @mcp.tool()

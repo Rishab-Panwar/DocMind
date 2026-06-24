@@ -31,8 +31,8 @@ except ImportError:
 # handful of chunks on CPU, plus ~5s to construct, paid per request), making the
 # Standard path ~20s vs the Agentic path's ~3s. MMR diversity + per-source
 # coverage already give good multi-file retrieval without it, so the reranker is
-# OFF by default. Re-enable with DOCVAULT_RERANK=1 if a faster reranker is wired.
-_RERANK_DEFAULT = os.getenv("DOCVAULT_RERANK", "0").lower() in {"1", "true", "yes"}
+# OFF by default. Re-enable with DOCMIND_RERANK=1 if a faster reranker is wired.
+_RERANK_DEFAULT = os.getenv("DOCMIND_RERANK", "0").lower() in {"1", "true", "yes"}
 
 
 class ConversationalRAG:
