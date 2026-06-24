@@ -1,45 +1,43 @@
 {
-  "family": "documentportaltd",
+  "family": "docmind-td",
   "networkMode": "awsvpc",
   "executionRoleArn": "arn:aws:iam::683123961541:role/ecsTaskExecutionRole",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
-  "memory": "8192",
+  "memory": "4096",
   "containerDefinitions": [
     {
-      "name": "document-portal-container",
-      "image": "683123961541.dkr.ecr.us-east-1.amazonaws.com/documentportalliveclass",
-      "cpu": 1024,
+      "name": "docmind-container",
+      "image": "683123961541.dkr.ecr.us-east-1.amazonaws.com/docmind",
       "essential": true,
       "portMappings": [
         {
           "containerPort": 8080,
           "hostPort": 8080,
           "protocol": "tcp",
-          "name": "document-portal-container-8080-tcp",
+          "name": "docmind-8080-tcp",
           "appProtocol": "http"
         }
       ],
       "environment": [
-        {
-          "name": "ENV",
-          "value": "production"
-        },
-        {
-          "name": "LLM_PROVIDER",
-          "value": "google"
-        }
+        { "name": "ENV", "value": "production" },
+        { "name": "USE_VERTEX", "value": "true" },
+        { "name": "LLM_PROVIDER", "value": "google" },
+        { "name": "VERTEX_TRANSPORT", "value": "rest" },
+        { "name": "GOOGLE_CLOUD_PROJECT", "value": "mlops-487010" },
+        { "name": "GOOGLE_CLOUD_LOCATION", "value": "us-central1" },
+        { "name": "UVICORN_WORKERS", "value": "2" }
       ],
       "secrets": [
         {
-          "name": "apikeyliveclass",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:683123961541:secret:apikeyliveclass-Y3e2yQ"
+          "name": "GCP_SA_JSON",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:683123961541:secret:docmind/gcp-sa-REPLACE_WITH_REAL_SUFFIX"
         }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/documentportaltd",
+          "awslogs-group": "/ecs/docmind-td",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs",
           "awslogs-create-group": "true"

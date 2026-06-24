@@ -18,11 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files (separate layer so code changes don't trigger pip reinstall)
 COPY . .
 
+# Entrypoint writes the GCP SA key (from env) and starts uvicorn in prod mode.
+RUN chmod +x /app/entrypoint.sh
+
 # Expose port
 EXPOSE 8080
 
-# Run FastAPI with uvicorn
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
-
-# Replace last CMD in prod
-#CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4"]
+# Production start (no --reload). Entrypoint handles GCP creds + uvicorn workers.
+CMD ["/app/entrypoint.sh"]

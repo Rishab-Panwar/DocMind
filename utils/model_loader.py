@@ -82,7 +82,12 @@ class ApiKeyManager:
 
         # Final check
         missing = [k for k in self.REQUIRED_KEYS if not self.api_keys.get(k)]
-        if missing:
+        use_vertex = os.getenv("USE_VERTEX", "false").lower() in {"1", "true", "yes"}
+        if missing and use_vertex:
+            # Vertex AI authenticates via the service account (GOOGLE_APPLICATION_
+            # CREDENTIALS), not these API keys, so their absence is expected.
+            log.info("API keys not set; using Vertex AI service-account auth", missing_keys=missing)
+        elif missing:
             # Enforce strictly only in production or when explicitly requested
             strict_mode = os.getenv("ENV", "local").lower() == "production" or os.getenv("STRICT_API_KEYS", "false").lower() in {"1", "true", "yes"}
             if strict_mode:
