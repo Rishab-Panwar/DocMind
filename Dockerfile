@@ -13,7 +13,9 @@ RUN apt-get update && apt-get install -y build-essential poppler-utils && rm -rf
 
 # Copy requirements and install first (cached layer — only rebuilds when requirements.txt changes)
 COPY requirements.txt setup.py ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Use uv: its resolver is far faster than pip and avoids the long backtracking
+# that pip does over loosely-pinned deps (grpcio/groq/langgraph/etc.).
+RUN pip install --no-cache-dir uv && uv pip install --system --no-cache -r requirements.txt
 
 # Copy project files (separate layer so code changes don't trigger pip reinstall)
 COPY . .
