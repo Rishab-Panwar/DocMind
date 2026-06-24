@@ -287,11 +287,12 @@
     </div>
     <div class="result-card">
       <div class="result-card-head">🆚 Comparison Result</div>
+      <p class="cmp-caption" id="cmp-caption" style="display:none">This table highlights the changes made to the original version to create the updated version.</p>
       <div class="table-wrap">
         <table id="cmp-table">
-          <thead><tr><th>Page</th><th>Changes</th></tr></thead>
+          <thead><tr><th class="th-added">Added</th><th class="th-removed">Removed</th></tr></thead>
           <tbody>
-            <tr><td class="td-page" colspan="2" style="color:var(--muted);text-align:center;padding:20px">No comparison yet.</td></tr>
+            <tr><td colspan="2" style="color:var(--muted);text-align:center;padding:20px">No comparison yet.</td></tr>
           </tbody>
         </table>
       </div>
@@ -618,14 +619,30 @@ document.getElementById("btn-compare").addEventListener("click", async () => {
     if (!res.ok) { const e = await res.json().catch(() => ({ detail: res.statusText })); throw new Error(e.detail || `HTTP ${res.status}`); }
     const json = await res.json();
     const rows = json.rows || [];
-    if (!rows.length) {
+    const caption = document.getElementById("cmp-caption");
+    // Flatten Added/Removed across pages; tag with page only when multi-page.
+    const multiPage = rows.length > 1;
+    const cell = (items, page) => {
+      const arr = (items || []).filter(x => String(x).trim());
+      if (!arr.length) return `<span class="cmp-none">No changes</span>`;
+      return "<ul>" + arr.map(x => {
+        const tag = multiPage && page ? `<span class="cmp-pg">${page}</span> ` : "";
+        return `<li>${tag}${DOMPurify.sanitize(marked.parseInline(String(x)))}</li>`;
+      }).join("") + "</ul>";
+    };
+    const added = [], removed = [];
+    rows.forEach(r => {
+      const page = r.Page ?? r.page ?? "";
+      added.push(cell(r.Added ?? r.added, page));
+      removed.push(cell(r.Removed ?? r.removed, page));
+    });
+    const anyChange = rows.some(r => (r.Added || r.added || []).length || (r.Removed || r.removed || []).length);
+    if (!rows.length || !anyChange) {
+      caption.style.display = "none";
       tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:20px">No differences found.</td></tr>`;
     } else {
-      tbody.innerHTML = rows.map(r => {
-        const page = r.Page ?? r.page ?? "";
-        const chg = r.Changes ?? r.changes ?? "";
-        return `<tr><td class="td-page">${page}</td><td>${chg}</td></tr>`;
-      }).join("");
+      caption.style.display = "block";
+      tbody.innerHTML = `<tr><td class="td-added">${added.join("")}</td><td class="td-removed">${removed.join("")}</td></tr>`;
     }
     toast("Comparison complete.", "success");
   } catch (e) {

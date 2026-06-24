@@ -228,7 +228,8 @@ def test_document_comparator_save_and_combine(tmp_path, monkeypatch):
     from src.document_ingestion.data_ingestion import DocHandler as DH
     monkeypatch.setattr(DH, "read_text", lambda self, p: "CONTENT")
     combined = dc.combine_documents()
-    assert "Document: r.txt" in combined and "Document: a.txt" in combined
+    assert "r.txt" in combined and "a.txt" in combined
+    assert "REFERENCE DOCUMENT" in combined and "ACTUAL DOCUMENT" in combined
 
 
 def test_document_comparator_read_pdf_error(tmp_path):

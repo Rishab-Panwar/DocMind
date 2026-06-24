@@ -462,6 +462,12 @@ class DocumentComparator:
                         f.write(fobj.read())
                     else:
                         f.write(fobj.getbuffer())
+            # Remember which file is the reference (original) vs actual (updated)
+            # so combine_documents can label and order them explicitly — the model
+            # must know the baseline, otherwise comparing two unrelated documents
+            # collapses to a wrong "NO CHANGE".
+            self.reference_path = ref_path
+            self.actual_path = act_path
             log.info("Files saved", reference=str(ref_path), actual=str(act_path), session=self.session_id)
             return ref_path, act_path
         except Exception as e:
@@ -501,12 +507,28 @@ class DocumentComparator:
 
     def combine_documents(self) -> str:
         try:
+            ref = getattr(self, "reference_path", None)
+            act = getattr(self, "actual_path", None)
+            if ref and act:
+                # Explicit, ordered roles so the model knows the baseline.
+                ordered = [
+                    ("REFERENCE DOCUMENT (original version)", Path(ref)),
+                    ("ACTUAL DOCUMENT (updated version)", Path(act)),
+                ]
+            else:
+                # Fallback: scan the session folder (backward-compatible).
+                ordered = [
+                    ("Document", f)
+                    for f in sorted(self.session_path.iterdir())
+                    if f.is_file() and f.suffix.lower() in self.ALLOWED_EXTS
+                ]
             doc_parts = []
-            for file in sorted(self.session_path.iterdir()):
-                if file.is_file() and file.suffix.lower() in self.ALLOWED_EXTS:
-                    content = self.read_document(file)
-                    if content.strip():
-                        doc_parts.append(f"Document: {file.name}\n{content}")
+            for label, file in ordered:
+                if not (file.is_file() and file.suffix.lower() in self.ALLOWED_EXTS):
+                    continue
+                content = self.read_document(file)
+                if content.strip():
+                    doc_parts.append(f"===== {label}: {file.name} =====\n{content}")
             combined_text = "\n\n".join(doc_parts)
             log.info("Documents combined", count=len(doc_parts), session=self.session_id)
             return combined_text

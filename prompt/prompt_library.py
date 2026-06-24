@@ -13,12 +13,28 @@ Analyze this document:
 
 # Prompt for document comparison
 document_comparison_prompt = ChatPromptTemplate.from_template("""
-You will be provided with content from two PDFs. Your tasks are as follows:
+You will be given two documents: a REFERENCE DOCUMENT (the original version) and an
+ACTUAL DOCUMENT (the updated version). Compare the ACTUAL against the REFERENCE and
+report what changed to turn the original into the updated version.
 
-1. Compare the content in two PDFs
-2. Identify the difference in PDF and note down the page number
-3. The output you provide must be page wise comparison content
-4. If any page do not have any change, mention as 'NO CHANGE'
+For each page (use the page numbers shown in the text) produce two lists:
+- "Added": content that is present in the ACTUAL (updated) version but NOT in the
+  reference - i.e. things that were added.
+- "Removed": content that is present in the REFERENCE (original) version but NOT in
+  the actual - i.e. things that were removed.
+
+Rules:
+1. For a MODIFIED item, put the original wording in "Removed" and the new wording in
+   "Added" (a change is a removal of the old plus an addition of the new).
+2. Each list item is a short, self-contained phrase describing one change. Bold the
+   key subject with **double asterisks** (e.g. the section, field, or value).
+3. If a page has no additions, "Added" must be an empty list; likewise for
+   "Removed". If a page is genuinely identical, both lists are empty.
+4. If the two documents are entirely different (not versions of the same document),
+   do NOT leave the lists empty - summarise the major content of the actual under
+   "Added" and the major content of the reference under "Removed".
+5. Do NOT invent, omit, or alter any factual finding - only organise the real
+   differences into the two lists.
 
 Input documents:
 

@@ -453,6 +453,19 @@ tbody tr { transition: background .12s; }
 tbody tr:hover td { background: var(--grey-50); }
 tbody tr:last-child td { border-bottom: none; }
 .td-page { color: var(--grey-500); font-size: 12.5px; width: 90px; }
+/* Comparison: caption + two-column Added / Removed table */
+.cmp-caption { margin: 14px 18px 12px; color: var(--grey-500); font-size: 13px; }
+.th-added, .td-added { width: 50%; }
+.th-removed, .td-removed { width: 50%; }
+.td-added, .td-removed { vertical-align: top; }
+.td-added ul, .td-removed ul { margin: 0; padding-left: 18px; }
+.td-added li, .td-removed li { margin: 0 0 6px; line-height: 1.5; }
+.td-added li:last-child, .td-removed li:last-child { margin-bottom: 0; }
+.td-added li::marker { color: var(--accent-2, #22c55e); }
+.td-removed li::marker { color: var(--danger, #ef4444); }
+.td-added strong, .td-removed strong { font-weight: 600; }
+.cmp-none { color: var(--grey-400, #9ca3af); font-size: 12.5px; font-style: italic; }
+.cmp-pg { display: inline-block; font-size: 10.5px; color: var(--grey-500); background: var(--grey-100, #f1f0ee); border-radius: 4px; padding: 0 5px; margin-right: 2px; }
 
 /* ====== TOASTS ====== */
 #toast-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
