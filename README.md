@@ -15,10 +15,10 @@ DocMind is an AI document platform that lets you upload files across **9+ format
 </div>
 
 ---
-<img width="1912" height="969" alt="DocMind landing" src="https://github.com/user-attachments/assets/af0aad18-8596-48aa-a1a7-39a323097861" />
+
+<img width="1915" height="966" alt="ezgif com-animated-gif-maker (7)" src="https://github.com/user-attachments/assets/21947b0f-6cb5-4601-bee4-f6871e11734e" />
 
 ______
-<img width="1916" height="966" alt="DocMind chat" src="https://github.com/user-attachments/assets/74abb867-5eec-4d64-984c-45e9d0c0abbf" />
 
 
 ## Features
