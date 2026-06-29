@@ -1,6 +1,6 @@
 <div align="center">
 
-<img width="80" height="80" alt="DocMind logo" src="docmind_logo.png">
+<img width="200" height="200" alt="DocMind logo" src="docmind_logo.png">
 
 # DocMind
 
