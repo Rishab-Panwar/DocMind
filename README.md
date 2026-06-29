@@ -1,6 +1,6 @@
 <div align="center">
 
-<img width="80" height="80" alt="DocMind logo" src="https://github.com/user-attachments/assets/8f64a368-fdcd-472c-ae2e-8ca2911c2258">
+<img width="80" height="80" alt="DocMind logo" src="docmind_logo.png">
 
 # DocMind
 
@@ -8,7 +8,7 @@
 
 [Features](#features) · [How It Works](#how-it-works) · [Architecture](#system-architecture) · [Tech Stack](#tech-stack) · [Local Setup](#local-setup)
 
-DocMind is an AI document platform that lets you upload your files and ask questions in plain language. It pairs **conversational RAG** with an **agentic LangGraph engine**, computes **exact answers over tables and spreadsheets**, extracts structured metadata, performs a structured **Added / Removed** comparison between two documents, and ships a built-in **MCP server** for Claude Desktop and Cursor. Every generation call runs on **Google Vertex AI (gemini-2.5-flash)**, and the app is deployed on **AWS ECS Fargate** with a full CI/CD pipeline.
+DocMind is an AI document platform that lets you upload files across **9+ formats** (PDF, DOCX, PPTX, TXT, Markdown, CSV, XLSX/XLS, JSON, SQLite) and ask questions in plain language. It pairs **conversational RAG** with an **agentic LangGraph engine**, extracts structured metadata, performs a structured **Added / Removed** comparison between two documents, and ships a built-in **MCP server** for Claude Desktop and Cursor. RAG quality is continuously measured with **DeepEval** (Answer Relevancy and Faithfulness) using Vertex Gemini as the judge. Every generation call runs on **Google Vertex AI (gemini-2.5-flash)**, and the app is deployed on **AWS ECS Fargate** with a full CI/CD pipeline.
 
 **Live:** [docmind.rishabai.me](https://docmind.rishabai.me)
 
